@@ -5798,8 +5798,8 @@ def _build_platform_hub_component(request: GameGenerationRequest) -> str:
                     <v-btn color="success" large :disabled="!currentDoor || !hasKey" @click="openFocusedDoor">
                       Abrir porta
                     </v-btn>
-                    <v-btn text large color="amber darken-2" :disabled="!currentPickup" @click="collectFocusedPickup">
-                      Coletar
+                    <v-btn text large color="amber darken-2" disabled>
+                      Coleta automatica
                     </v-btn>
                     <v-btn text large @click="nextLevel">
                       Proxima fase
@@ -5848,13 +5848,13 @@ def _build_platform_hub_component(request: GameGenerationRequest) -> str:
                     <li>Ande pelo mapa como no Platform original.</li>
                     <li>Colete moedas e pegue a chave da fase.</li>
                     <li>Fique sobre a porta certa e abra a task.</li>
-                    <li>Conclua as tasks antes de atingir 3 perdas.</li>
+                    <li>Conclua as seis tasks antes de atingir 3 perdas.</li>
                   </ul>
                 </v-card>
 
                 <v-card outlined class="pa-4 mb-4 sidebar-card">
                   <div class="text-subtitle-1 font-weight-bold mb-2">Objetivo</div>
-                  <p class="mb-2">Atravesse as fases, abra as portas e conclua as quatro tasks do hub.</p>
+                  <p class="mb-2">Atravesse as fases, abra as portas e conclua as seis tasks do hub.</p>
                   <div class="text-caption">Fase atual</div>
                   <div class="text-h6">{{ currentLevel.title }}</div>
                   <div class="text-caption mt-3">Session score</div>
@@ -5959,6 +5959,35 @@ const buildLevels = () => ([
     poles: [
       { x: 520, y: 346 }
     ]
+  },
+  {
+    id: 'level-2',
+    title: 'Bairro final',
+    theme: 'Fechamento da jornada',
+    hero: { x: 60, y: 280 },
+    platforms: [
+      { image: 'ground', x: 0, y: 346, visible: true },
+      { image: 'grass:2x1', x: 220, y: 290, visible: true },
+      { image: 'grass:4x1', x: 430, y: 250, visible: true },
+      { image: 'grass:6x1', x: 690, y: 200, visible: true }
+    ],
+    doors: [
+      { id: 'task-5', label: 'Porta 05', x: 500, y: 250, route: 'task-5', house: 'house1' },
+      { id: 'task-6', label: 'Porta 06', x: 860, y: 346, route: 'task-6', house: 'house2' }
+    ],
+    pickups: [
+      { id: 'coin-5', kind: 'coin', label: 'Moeda da escadaria', x: 250, y: 250 },
+      { id: 'coin-6', kind: 'coin', label: 'Moeda do bairro final', x: 760, y: 150 },
+      { id: 'key-3', kind: 'key', label: 'Chave do bairro final', x: 900, y: 300 }
+    ],
+    trees: [
+      { x: 120, y: 346 },
+      { x: 620, y: 346 }
+    ],
+    poles: [
+      { x: 360, y: 346 },
+      { x: 980, y: 346 }
+    ]
   }
 ])
 
@@ -6003,6 +6032,22 @@ export default {
         goals: ['Abrir a ultima porta', 'Fechar a rodada final'],
         completed: false,
         summary: 'Casa final'
+      },
+      {
+        id: 'task-5',
+        title: 'Task do bairro alto',
+        description: 'Uma task mais longa, ja no trecho final do mapa.',
+        goals: ['Passar pela escadaria', 'Chegar na quinta casa'],
+        completed: false,
+        summary: 'Casa do bairro alto'
+      },
+      {
+        id: 'task-6',
+        title: 'Task de encerramento',
+        description: 'A ultima task da rota, usada para fechar a jornada inteira.',
+        goals: ['Abrir a sexta porta', 'Concluir o hub completo'],
+        completed: false,
+        summary: 'Casa de encerramento'
       }
     ],
     phaserGame: null,
@@ -6010,6 +6055,8 @@ export default {
     activeTaskId: null,
     currentDoorId: null,
     currentPickupId: null,
+    collectedPickupIds: [],
+    autoOpenedDoorId: null,
     hasKey: false,
     coins: 0,
     moveIntent: 0,
@@ -6029,7 +6076,7 @@ export default {
       return this.currentLevel.doors.find((door) => door.id === this.currentDoorId) || null
     },
     currentPickup () {
-      return this.currentLevel.pickups.find((pickup) => pickup.id === this.currentPickupId) || null
+      return this.currentLevel.pickups.find((pickup) => pickup.id === this.currentPickupId && !this.collectedPickupIds.includes(pickup.id)) || null
     },
     completedTasks () {
       return this.tasks.filter((task) => task.completed)
@@ -6169,7 +6216,7 @@ export default {
             sprite.body.allowGravity = false
           })
 
-          levelData.pickups.forEach((pickup) => {
+          levelData.pickups.filter((pickup) => !vm.collectedPickupIds.includes(pickup.id)).forEach((pickup) => {
             if (pickup.kind === 'coin') {
               const sprite = this.coins.create(pickup.x, pickup.y, 'coin')
               sprite.pickupId = pickup.id
@@ -6223,20 +6270,42 @@ export default {
 
           this.game.physics.arcade.overlap(this.hero, this.coins, (hero, coin) => {
             vm.currentPickupId = coin.pickupId
+            if (!vm.collectedPickupIds.includes(coin.pickupId)) {
+              vm.collectedPickupIds.push(coin.pickupId)
+              vm.coins += 1
+              vm.message = `Moeda coletada: ${coin.pickupLabel}.`
+              vm.alertType = 'success'
+              if (this.sfx.coin) {
+                this.sfx.coin.play()
+              }
+            }
+            coin.kill()
           })
 
           this.game.physics.arcade.overlap(this.hero, this.doorKeys, (hero, key) => {
             vm.currentPickupId = key.pickupId
             if (!vm.hasKey) {
               vm.hasKey = true
+              if (!vm.collectedPickupIds.includes(key.pickupId)) {
+                vm.collectedPickupIds.push(key.pickupId)
+              }
               key.kill()
               vm.message = 'Chave coletada. Agora voce pode abrir uma porta.'
               vm.alertType = 'success'
+              if (this.doors && this.doors.children) {
+                this.doors.children.forEach((doorSprite) => {
+                  doorSprite.frame = 1
+                })
+              }
             }
           })
 
           this.game.physics.arcade.overlap(this.hero, this.doors, (hero, door) => {
             vm.currentDoorId = door.taskId
+            if (vm.hasKey && vm.autoOpenedDoorId !== door.taskId && !vm.activeTaskId) {
+              vm.autoOpenedDoorId = door.taskId
+              vm.openFocusedDoor()
+            }
           })
 
           const leftDown = this.keys.left.isDown || vm.moveIntent < 0
@@ -6285,32 +6354,26 @@ export default {
       const task = this.tasks.find((entry) => entry.id === taskId)
       if (task) {
         this.message = `Porta aberta: ${task.title}.`
-        this.alertType = 'primary'
+        this.alertType = 'info'
       }
     },
     openFocusedDoor () {
       if (!this.currentDoor || !this.hasKey) return
       this.startSessionRound('platform-hub-door')
       this.hasKey = false
+      this.currentPickupId = null
       if (this.sceneState && this.sceneState.sfx && this.sceneState.sfx.door) {
         this.sceneState.sfx.door.play()
+      }
+      if (this.sceneState && this.sceneState.doors && this.sceneState.doors.children) {
+        this.sceneState.doors.children.forEach((doorSprite) => {
+          doorSprite.frame = 0
+        })
       }
       this.openTask(this.currentDoor.id)
     },
     collectFocusedPickup () {
-      if (!this.currentPickup || !this.sceneState) return
-      if (this.currentPickup.kind === 'coin') {
-        const coinSprite = this.sceneState.coins.children.find((sprite) => sprite.pickupId === this.currentPickup.id)
-        if (coinSprite) {
-          coinSprite.kill()
-        }
-        this.coins += 1
-        this.message = `Moeda coletada: ${this.currentPickup.label}.`
-        this.alertType = 'success'
-        if (this.sceneState.sfx && this.sceneState.sfx.coin) {
-          this.sceneState.sfx.coin.play()
-        }
-      }
+      return
     },
     closeTask () {
       this.activeTaskId = null
@@ -6340,6 +6403,7 @@ export default {
       this.hasKey = false
       this.currentDoorId = null
       this.currentPickupId = null
+      this.autoOpenedDoorId = null
       this.message = `Fase trocada para ${this.currentLevel.title}.`
       this.alertType = 'info'
       this.$nextTick(() => {
