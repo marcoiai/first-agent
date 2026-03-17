@@ -1,0 +1,345 @@
+diff --git a/README.md b/README.md
+index ef5d97e..25e7a66 100644
+--- a/README.md
++++ b/README.md
+@@ -22,3 +22,19 @@ npm run lint
+ 
+ ### Customize configuration
+ See [Configuration Reference](https://cli.vuejs.org/config/).
++
++## Game Generator Pattern
++
++This repo now includes a repeatable pattern for adding new mini-games.
++
++See:
++
++- `docs/game-component-spec.md`
++- `docs/game-generator-prompt.md`
++- `src/components/templates/GameTemplate.vue`
++- `src/components/Screens/templates/GameTemplate.vue`
++
++Reference implementations:
++
++- `src/components/ReactionRush.vue`
++- `src/components/TreasureDoors.vue`
+diff --git a/src/components/Client.vue b/src/components/Client.vue
+index 55075e5..e4a8860 100644
+--- a/src/components/Client.vue
++++ b/src/components/Client.vue
+@@ -33,7 +33,8 @@
+                     Entrar
+                 </v-btn>
+                 </v-card-actions>
+-            </v-card>
++  
++          </v-card>
+             </v-dialog>
+         </div>
+     </template>
+@@ -222,8 +223,34 @@
+ 
+         <location-based v-if="active == 'locationbased'"></location-based>
+ 
++
++        <risk-and-reward-door-picking-game-for-quick-rounds-on-mobile v-if="active == 'riskandrewarddoorpickinggameforquickroundsonmobile'"></risk-and-reward-door-picking-game-for-quick-rounds-on-mobile>
++
++        <risk-and-reward-door-picking-game-with-simple-scoring-and-replayability v-if="active == 'riskandrewarddoorpickinggamewithsimplescoringandreplayability'"></risk-and-reward-door-picking-game-with-simple-scoring-and-replayability>
++
++        <speed-sorting-mini-game-for-quick-rounds-on-mobile v-if="active == 'speedsortingminigameforquickroundsonmobile'"></speed-sorting-mini-game-for-quick-rounds-on-mobile>
++
++        <tap-sequence-survival-challenge-for-a-live-audience-screen v-if="active == 'tapsequencesurvivalchallengeforaliveaudiencescreen'"></tap-sequence-survival-challenge-for-a-live-audience-screen>
++
++        <tap-sequence-survival-challenge-for-quick-rounds-on-mobile v-if="active == 'tapsequencesurvivalchallengeforquickroundsonmobile'"></tap-sequence-survival-challenge-for-quick-rounds-on-mobile>
++
++        <new-treasure-style-mobile-game v-if="active == 'newtreasurestylemobilegame'"></new-treasure-style-mobile-game>
++
++        <punchout-mobile-game v-if="active == 'punchoutmobilegame'"></punchout-mobile-game>
++
++        <punch-out-mobile-game v-if="active == 'punchoutmobilegame'"></punch-out-mobile-game>
++
++        <memory-mobile-game v-if="active == 'memorymobilegame'"></memory-mobile-game>
++
++        <jumper-mobile-game v-if="active == 'jumpermobilegame'"></jumper-mobile-game>
+         <ask-multiple v-if="active == 'AskMultiple'" :choices="task.choices"></ask-multiple>
+ 
++        <memory-game-with-hidden-symbols v-if="active == 'memorygamewithhiddensymbols'"></memory-game-with-hidden-symbols>
++
++        <reaction-rush v-if="active == 'reactionrush'"></reaction-rush>
++
++        <treasure-doors v-if="active == 'treasuredoors'"></treasure-doors>
++
+           </v-card>
+         </v-container>
+       </v-col>
+@@ -300,8 +327,30 @@ export default {
+         'TicTacToe':    () => import('../components/TicTacToe/TicTacToe'),
+         'HowManyPizza': () => import('../components/HowManyPizza'),
+         'LocationBased':() => import('../components/AR/LocationBased'),
++        'ReactionRush': () => import('../components/ReactionRush'),
++        'TreasureDoors': () => import('../components/TreasureDoors'),
+         'Timer':        () => import('../components/Timer'),
+         'AskMultiple':  () => import('../components/AskMultiple'),
++
++        'MemoryGameWithHiddenSymbols': () => import('../components/MemoryGameWithHiddenSymbols'),
++
++        'RiskAndRewardDoorPickingGameForQuickRoundsOnMobile': () => import('../components/RiskAndRewardDoorPickingGameForQuickRoundsOnMobile'),
++
++        'RiskAndRewardDoorPickingGameWithSimpleScoringAndReplayability': () => import('../components/RiskAndRewardDoorPickingGameWithSimpleScoringAndReplayability'),
++
++        'SpeedSortingMiniGameForQuickRoundsOnMobile': () => import('../components/SpeedSortingMiniGameForQuickRoundsOnMobile'),
++
++        'TapSequenceSurvivalChallengeForALiveAudienceScreen': () => import('../components/TapSequenceSurvivalChallengeForALiveAudienceScreen'),
++
++        'TapSequenceSurvivalChallengeForQuickRoundsOnMobile': () => import('../components/TapSequenceSurvivalChallengeForQuickRoundsOnMobile'),
++
++        'NewTreasureStyleMobileGame': () => import('../components/NewTreasureStyleMobileGame'),
++
++        'PunchoutMobileGame': () => import('../components/PunchoutMobileGame'),
++
++        'MemoryMobileGame': () => import('../components/MemoryMobileGame'),
++
++        'JumperMobileGame': () => import('../components/JumperMobileGame'),
+         'welcome':      () => import('../components/Screens/Welcome'),
+     },
+ 
+diff --git a/src/components/Form/Screen.vue b/src/components/Form/Screen.vue
+index be46717..55a9e80 100644
+--- a/src/components/Form/Screen.vue
++++ b/src/components/Form/Screen.vue
+@@ -33,7 +33,8 @@
+                     Entrar
+                 </v-btn>
+                 </v-card-actions>
+-            </v-card>
++  
++          </v-card>
+             </v-dialog>
+         </div>
+     </template>
+@@ -199,7 +200,33 @@
+ 
+             <location-based v-if="active == 'locationbased'"></location-based>
+ 
++
++            <risk-and-reward-door-picking-game-for-quick-rounds-on-mobile v-if="active == 'riskandrewarddoorpickinggameforquickroundsonmobile'"></risk-and-reward-door-picking-game-for-quick-rounds-on-mobile>
++
++            <risk-and-reward-door-picking-game-with-simple-scoring-and-replayability v-if="active == 'riskandrewarddoorpickinggamewithsimplescoringandreplayability'"></risk-and-reward-door-picking-game-with-simple-scoring-and-replayability>
++
++            <speed-sorting-mini-game-for-quick-rounds-on-mobile v-if="active == 'speedsortingminigameforquickroundsonmobile'"></speed-sorting-mini-game-for-quick-rounds-on-mobile>
++
++            <tap-sequence-survival-challenge-for-a-live-audience-screen v-if="active == 'tapsequencesurvivalchallengeforaliveaudiencescreen'"></tap-sequence-survival-challenge-for-a-live-audience-screen>
++
++            <tap-sequence-survival-challenge-for-quick-rounds-on-mobile v-if="active == 'tapsequencesurvivalchallengeforquickroundsonmobile'"></tap-sequence-survival-challenge-for-quick-rounds-on-mobile>
++
++            <new-treasure-style-mobile-game v-if="active == 'newtreasurestylemobilegame'"></new-treasure-style-mobile-game>
++
++            <punchout-mobile-game v-if="active == 'punchoutmobilegame'"></punchout-mobile-game>
++
++            <punch-out-mobile-game v-if="active == 'punchoutmobilegame'"></punch-out-mobile-game>
++
++            <memory-mobile-game v-if="active == 'memorymobilegame'"></memory-mobile-game>
++
++            <jumper-mobile-game v-if="active == 'jumpermobilegame'"></jumper-mobile-game>
+             <MathChallenge v-if="active == 'mathchallenge'"></MathChallenge>
++
++            <memory-game-with-hidden-symbols v-if="active == 'memorygamewithhiddensymbols'"></memory-game-with-hidden-symbols>
++
++            <reaction-rush v-if="active == 'reactionrush'"></reaction-rush>
++
++            <treasure-doors v-if="active == 'treasuredoors'"></treasure-doors>
+           </v-card>
+       </v-col>
+ 
+@@ -314,7 +341,29 @@ export default {
+         'HowManyPizza': () => import('../HowManyPizza'),
+         'LocationBased':  () => import('../AR/LocationBased'),
+         //'Timer':          () => import('../Timer'),
+-        'MathChallenge':  () => import('../MathChallenge.vue')
++
++        'MemoryGameWithHiddenSymbols':   () => import('../MemoryGameWithHiddenSymbols'),
++
++        'RiskAndRewardDoorPickingGameForQuickRoundsOnMobile':   () => import('../RiskAndRewardDoorPickingGameForQuickRoundsOnMobile'),
++
++        'RiskAndRewardDoorPickingGameWithSimpleScoringAndReplayability':   () => import('../RiskAndRewardDoorPickingGameWithSimpleScoringAndReplayability'),
++
++        'SpeedSortingMiniGameForQuickRoundsOnMobile':   () => import('../SpeedSortingMiniGameForQuickRoundsOnMobile'),
++
++        'TapSequenceSurvivalChallengeForALiveAudienceScreen':   () => import('../TapSequenceSurvivalChallengeForALiveAudienceScreen'),
++
++        'TapSequenceSurvivalChallengeForQuickRoundsOnMobile':   () => import('../TapSequenceSurvivalChallengeForQuickRoundsOnMobile'),
++
++        'NewTreasureStyleMobileGame':   () => import('../NewTreasureStyleMobileGame'),
++
++        'PunchoutMobileGame':   () => import('../PunchoutMobileGame'),
++
++        'MemoryMobileGame':   () => import('../MemoryMobileGame'),
++
++        'JumperMobileGame':   () => import('../JumperMobileGame'),
++        'MathChallenge':  () => import('../MathChallenge.vue'),
++        'ReactionRush':   () => import('../ReactionRush'),
++        'TreasureDoors':  () => import('../TreasureDoors')
+     },
+ 
+     data: () => {
+diff --git a/src/main.js b/src/main.js
+index a49de27..a0d72de 100644
+--- a/src/main.js
++++ b/src/main.js
+@@ -20,8 +20,20 @@ import Map from '../src/components/Map'
+ 
+ import Welcome from '../src/components/Screens/Welcome'
+ import AskMultiple from '../src/components/AskMultiple'
++import ReactionRushScreen from '../src/components/Screens/ReactionRush'
++import TreasureDoorsScreen from '../src/components/Screens/TreasureDoors'
+ 
+ import MathChallenge from '../src/components/MathChallenge'
++import JumperMobileGameScreen from '../src/components/Screens/JumperMobileGame'
++import MemoryMobileGameScreen from '../src/components/Screens/MemoryMobileGame'
++import PunchoutMobileGameScreen from '../src/components/Screens/PunchoutMobileGame'
++import NewTreasureStyleMobileGameScreen from '../src/components/Screens/NewTreasureStyleMobileGame'
++import TapSequenceSurvivalChallengeForQuickRoundsOnMobileScreen from '../src/components/Screens/TapSequenceSurvivalChallengeForQuickRoundsOnMobile'
++import TapSequenceSurvivalChallengeForALiveAudienceScreenScreen from '../src/components/Screens/TapSequenceSurvivalChallengeForALiveAudienceScreen'
++import SpeedSortingMiniGameForQuickRoundsOnMobileScreen from '../src/components/Screens/SpeedSortingMiniGameForQuickRoundsOnMobile'
++import RiskAndRewardDoorPickingGameWithSimpleScoringAndReplayabilityScreen from '../src/components/Screens/RiskAndRewardDoorPickingGameWithSimpleScoringAndReplayability'
++import RiskAndRewardDoorPickingGameForQuickRoundsOnMobileScreen from '../src/components/Screens/RiskAndRewardDoorPickingGameForQuickRoundsOnMobile'
++import MemoryGameWithHiddenSymbolsScreen from '../src/components/Screens/MemoryGameWithHiddenSymbols'
+ 
+ /*
+ *  Animations
+@@ -33,7 +45,6 @@ import CarltonDancing from '../src/components/CarltonDancing'
+ import Fireworks from '../src/components/Form/Fireworks'
+ import CofeeMachine from '../src/components/CofeeMachine'
+ import Mario from '../src/components/MarioBros'
+-import Login from './components/Login.vue';
+ 
+ import StreetView from '../src/components/StreetView'
+ //import MapTestscreen from '../src/components/Screens/MapTest.vue'
+@@ -263,7 +274,90 @@ Vue.mixin({
+                 text: 'Desafio Matemático',
+                 component: 'MathChallenge',
+                 description: 'Faça uma pergunta com uma pegadinha Matemática.'
+-            }
++            },
++            {
++                done: false,
++                text: 'Reaction Rush',
++                component: 'reactionrush',
++                description: 'Um jogo rapido de reflexo para ver quem toca primeiro na hora certa.'
++            },
++            {
++                done: false,
++                text: 'Treasure Doors',
++                component: 'treasuredoors',
++                description: 'Escolha uma porta por rodada e descubra onde o tesouro esta escondido.'
++            },
++
++            {
++                done: false,
++                text: 'MemoryGameWithHiddenSymbols',
++                component: 'memorygamewithhiddensymbols',
++                description: 'memory game with hidden symbols'
++            },
++
++            {
++                done: false,
++                text: 'Risk And Reward Door Picking Game For Quick Rounds On Mobile',
++                component: 'riskandrewarddoorpickinggameforquickroundsonmobile',
++                description: 'Abra portas, guarde pontos e decida quando parar antes da bomba.'
++            },
++
++            {
++                done: false,
++                text: 'RiskAndRewardDoorPickingGameWithSimpleScoringAndReplayability',
++                component: 'riskandrewarddoorpickinggamewithsimplescoringandreplayability',
++                description: 'risk and reward door picking game with simple scoring and replayability'
++            },
++
++            {
++                done: false,
++                text: 'SpeedSortingMiniGameForQuickRoundsOnMobile',
++                component: 'speedsortingminigameforquickroundsonmobile',
++                description: 'speed sorting mini game for quick rounds on mobile'
++            },
++
++            {
++                done: false,
++                text: 'TapSequenceSurvivalChallengeForALiveAudienceScreen',
++                component: 'tapsequencesurvivalchallengeforaliveaudiencescreen',
++                description: 'tap sequence survival challenge for a live audience screen'
++            },
++
++            {
++                done: false,
++                text: 'TapSequenceSurvivalChallengeForQuickRoundsOnMobile',
++                component: 'tapsequencesurvivalchallengeforquickroundsonmobile',
++                description: 'tap sequence survival challenge for quick rounds on mobile'
++            },
++
++            {
++                done: false,
++                text: 'NewTreasureStyleMobileGame',
++                component: 'newtreasurestylemobilegame',
++                description: 'new treasure style mobile game'
++            },
++
++            {
++                done: false,
++                text: 'PunchoutMobileGame',
++                component: 'punchoutmobilegame',
++                description: 'punchout mobile game'
++            },
++
++
++            {
++                done: false,
++                text: 'MemoryMobileGame',
++                component: 'memorymobilegame',
++                description: 'memory mobile game'
++            },
++
++            {
++                done: false,
++                text: 'JumperMobileGame',
++                component: 'jumpermobilegame',
++                description: 'jumper mobile game'
++            },
+         ]
+     }
+   }
+@@ -274,7 +368,6 @@ Vue.use(VueRouter)
+ //Vue.config.productionTip = false
+ 
+ const routes = [
+-  { path: '/login', component: Login, isAuthenticated: false, name: 'Login' },
+   { path: '/quiz', component: QuizForm, isAuthenticated: false },
+   { path: '/client/:id?', component: Client, isAuthenticated: false },
+   { path: '/task',       component: Task, isAuthenticated: false },
+@@ -296,6 +389,28 @@ const routes = [
+   { path: '/welcome', component: Welcome },
+   { path: '/askMultiple', component: AskMultiple, isAuthenticated: false },
+   { path: '/mathchallenge', component: MathChallenge, isAuthenticated: false },
++  { path: '/reactionrush', component: ReactionRushScreen, isAuthenticated: false },
++  { path: '/treasuredoors', component: TreasureDoorsScreen, isAuthenticated: false },
++
++  { path: '/memorygamewithhiddensymbols', component: MemoryGameWithHiddenSymbolsScreen, isAuthenticated: false },
++
++  { path: '/riskandrewarddoorpickinggameforquickroundsonmobile', component: RiskAndRewardDoorPickingGameForQuickRoundsOnMobileScreen, isAuthenticated: false },
++
++  { path: '/riskandrewarddoorpickinggamewithsimplescoringandreplayability', component: RiskAndRewardDoorPickingGameWithSimpleScoringAndReplayabilityScreen, isAuthenticated: false },
++
++  { path: '/speedsortingminigameforquickroundsonmobile', component: SpeedSortingMiniGameForQuickRoundsOnMobileScreen, isAuthenticated: false },
++
++  { path: '/tapsequencesurvivalchallengeforaliveaudiencescreen', component: TapSequenceSurvivalChallengeForALiveAudienceScreenScreen, isAuthenticated: false },
++
++  { path: '/tapsequencesurvivalchallengeforquickroundsonmobile', component: TapSequenceSurvivalChallengeForQuickRoundsOnMobileScreen, isAuthenticated: false },
++
++  { path: '/newtreasurestylemobilegame', component: NewTreasureStyleMobileGameScreen, isAuthenticated: false },
++
++  { path: '/punchoutmobilegame', component: PunchoutMobileGameScreen, isAuthenticated: false },
++
++  { path: '/memorymobilegame', component: MemoryMobileGameScreen, isAuthenticated: false },
++
++  { path: '/jumpermobilegame', component: JumperMobileGameScreen, isAuthenticated: false },
+   { path: '/sv', component: StreetView },
+ ]
+ 

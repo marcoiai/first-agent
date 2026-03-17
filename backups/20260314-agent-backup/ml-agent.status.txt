@@ -1,0 +1,8 @@
+ M first-agent/README.md
+ M first-agent/first_agent/agent.py
+ M first-agent/first_agent/game_generator.py
+?? .gitignore
+?? README.md
+?? backups/
+?? first-agent/first_agent/reference_library.py
+?? first-agent/first_agent/reviewer.py

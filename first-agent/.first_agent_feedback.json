@@ -1,0 +1,236 @@
+{
+  "engines": {
+    "memory": {
+      "approved": 1,
+      "rejected": 2
+    },
+    "pick-one": {
+      "approved": 1,
+      "rejected": 1
+    },
+    "crossword": {
+      "approved": 2,
+      "rejected": 0
+    },
+    "reaction": {
+      "approved": 0,
+      "rejected": 2
+    },
+    "runner": {
+      "approved": 0,
+      "rejected": 3
+    },
+    "car": {
+      "approved": 0,
+      "rejected": 1
+    },
+    "adventure": {
+      "approved": 1,
+      "rejected": 0
+    },
+    "duel": {
+      "approved": 0,
+      "rejected": 1
+    },
+    "self-development": {
+      "approved": 2,
+      "rejected": 0
+    },
+    "streetview-adventure": {
+      "approved": 2,
+      "rejected": 0
+    },
+    "variety": {
+      "approved": 0,
+      "rejected": 2
+    },
+    "platform-hub": {
+      "approved": 1,
+      "rejected": 0
+    }
+  },
+  "history": [
+    {
+      "game_name": "ShortMemoryChallengeWithSymbolsAndEscalatingDifficulty",
+      "idea": "short memory challenge with symbols and escalating difficulty",
+      "engine_name": "memory",
+      "outcome": "approved"
+    },
+    {
+      "game_name": "TreasureDoorGameWithOneHiddenJackpotAndOneTrap",
+      "idea": "treasure door game with one hidden jackpot and one trap",
+      "engine_name": "pick-one",
+      "outcome": "approved"
+    },
+    {
+      "game_name": "SpellingPuzzleWithVisibleClueAndAnswerSlots",
+      "idea": "spelling puzzle with visible clue and answer slots",
+      "engine_name": "crossword",
+      "outcome": "approved"
+    },
+    {
+      "game_name": "TapAtThePerfectMomentGameForEventParticipants",
+      "idea": "tap at the perfect moment game for event participants",
+      "engine_name": "reaction",
+      "outcome": "rejected"
+    },
+    {
+      "game_name": "ArcadeJumperGameWithShortRoundsAndScoreStreaks",
+      "idea": "arcade jumper game with short rounds and score streaks",
+      "engine_name": "runner",
+      "outcome": "rejected"
+    },
+    {
+      "game_name": "MysteryChestGameWithOneRareRewardAndOnePenalty",
+      "idea": "mystery chest game with one rare reward and one penalty",
+      "engine_name": "pick-one",
+      "outcome": "rejected"
+    },
+    {
+      "game_name": "ReactionLightChallengeForQuickRoundsOnMobile",
+      "idea": "reaction light challenge for quick rounds on mobile",
+      "engine_name": "reaction",
+      "outcome": "rejected"
+    },
+    {
+      "game_name": "TrafficDodgeCarGameForQuickMobileRounds",
+      "idea": "traffic dodge car game for quick mobile rounds",
+      "engine_name": "car",
+      "outcome": "rejected"
+    },
+    {
+      "game_name": "HiddenIconMemoryGameWithIncreasingSequenceLength",
+      "idea": "hidden icon memory game with increasing sequence length",
+      "engine_name": "memory",
+      "outcome": "rejected"
+    },
+    {
+      "game_name": "ExplorationGameWithForksInThePathAndHiddenRewards",
+      "idea": "exploration game with forks in the path and hidden rewards",
+      "engine_name": "crossword",
+      "outcome": "approved"
+    },
+    {
+      "game_name": "ObstacleJumpRunnerForQuickMobileRounds",
+      "idea": "obstacle jump runner for quick mobile rounds",
+      "engine_name": "runner",
+      "outcome": "rejected"
+    },
+    {
+      "game_name": "AdventureTempleRunWithRelicChoicesAndLimitedEnergy",
+      "idea": "adventure temple run with relic choices and limited energy",
+      "engine_name": "adventure",
+      "outcome": "approved"
+    },
+    {
+      "game_name": "ArcadeFightGameWithBlockDodgeAndCounterChoices",
+      "idea": "arcade fight game with block dodge and counter choices",
+      "engine_name": "duel",
+      "outcome": "rejected"
+    },
+    {
+      "game_name": "TeamMemoryRecallGameWithVisibleSequenceAndReplayability",
+      "idea": "team memory recall game with visible sequence and replayability",
+      "engine_name": "memory",
+      "outcome": "rejected"
+    },
+    {
+      "game_name": "RunnerDodgeGameWithTimingBasedJumps",
+      "idea": "runner dodge game with timing based jumps",
+      "engine_name": "runner",
+      "outcome": "rejected"
+    },
+    {
+      "game_name": "ConfidenceBuilderComponentWithChoicesInterpretationAndNextActions",
+      "idea": "confidence builder component with choices, interpretation and next actions",
+      "engine_name": "self-development",
+      "outcome": "approved"
+    },
+    {
+      "game_name": "ConfidenceBuilderComponentWithChoicesInterpretationAndNextActions",
+      "idea": "confidence builder component with choices, interpretation and next actions",
+      "engine_name": "self-development",
+      "outcome": "approved"
+    },
+    {
+      "game_name": "StreetViewRelicHuntHiddenLandmarksLocationClues",
+      "idea": "street view relic hunt with hidden landmarks and location clues",
+      "engine_name": "streetview-adventure",
+      "outcome": "approved",
+      "review_average": 6.7,
+      "review_recommendation": "good-but-needs-polish",
+      "review_scores": {
+        "clarity": 9,
+        "interactivity": 3,
+        "originality": 4,
+        "visual": 8,
+        "theme_fit": 10,
+        "utility": 6
+      }
+    },
+    {
+      "game_name": "StreetViewRelicHuntHiddenLandmarksLocationClues",
+      "idea": "street view relic hunt with hidden landmarks and location clues",
+      "engine_name": "streetview-adventure",
+      "outcome": "approved",
+      "review_average": 7.3,
+      "review_recommendation": "good-but-needs-polish",
+      "review_scores": {
+        "clarity": 10,
+        "interactivity": 6,
+        "originality": 4,
+        "visual": 8,
+        "theme_fit": 10,
+        "utility": 6
+      }
+    },
+    {
+      "game_name": "MultiStageEventPlatformCentralAreaSupportTimeline",
+      "idea": "multi stage event platform with central game area and support timeline",
+      "engine_name": "variety",
+      "outcome": "rejected",
+      "review_average": 8.2,
+      "review_recommendation": "approved",
+      "review_scores": {
+        "clarity": 10,
+        "interactivity": 9,
+        "originality": 6,
+        "visual": 8,
+        "theme_fit": 10,
+        "utility": 6
+      }
+    },
+    {
+      "game_name": "MultiStageEventPlatformCentralAreaSupportTimeline",
+      "idea": "multi stage event platform with central game area and support timeline",
+      "engine_name": "variety",
+      "outcome": "rejected",
+      "review_average": 8.2,
+      "review_recommendation": "approved",
+      "review_scores": {
+        "clarity": 10,
+        "interactivity": 9,
+        "originality": 6,
+        "visual": 8,
+        "theme_fit": 10,
+        "utility": 6
+      }
+    },
+    {
+      "game_name": "PhaserSideScrollingTaskHubHousesKeysCoins",
+      "idea": "phaser side scrolling task hub with houses, keys, coins and doors that open mission tasks",
+      "engine_name": "platform-hub",
+      "outcome": "approved",
+      "review_average": 7.3,
+      "review_recommendation": "good-but-needs-polish",
+      "review_scores": {
+        "clarity": 10,
+        "interactivity": 7,
+        "originality": 4,
+        "visual": 7,
+        "theme_fit": 10,
+        "utility": 6
+      }
+    }
+  ]
+}

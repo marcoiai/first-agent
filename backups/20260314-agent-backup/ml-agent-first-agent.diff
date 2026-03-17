@@ -1,0 +1,812 @@
+diff --git a/first-agent/README.md b/first-agent/README.md
+index 53ea788..2247d03 100644
+--- a/first-agent/README.md
++++ b/first-agent/README.md
+@@ -62,6 +62,9 @@ Without `OPENAI_API_KEY`, the agent still works in fallback mode:
+ 
+ With `OPENAI_API_KEY`, it uses the model to produce a more intelligent action plan.
+ 
++The agent also reads existing `entert2` game components and uses the closest matches as references during generation. Today it especially benefits from strong examples like `TreasureDoors` and `ReactionRush`.
++It now also runs a local self-review pass before returning or writing code, checking things like instructions, visible primary action, objective, loss condition, and common Vue template issues.
++
+ ## Direct Write Mode
+ 
+ With `--write`, the agent will:
+@@ -71,4 +74,7 @@ With `--write`, the agent will:
+ - patch `src/main.js`
+ - patch `src/components/Form/Screen.vue`
+ - patch `src/components/Client.vue`
++- report which engine was selected
++- run `generate -> self-review -> refine -> write`
++- report which existing `entert2` games were used as references
+ - print the route to open, like `http://localhost:8080/#/yourcomponentkey`
+diff --git a/first-agent/first_agent/agent.py b/first-agent/first_agent/agent.py
+index 06bade4..c671646 100644
+--- a/first-agent/first_agent/agent.py
++++ b/first-agent/first_agent/agent.py
+@@ -8,6 +8,8 @@ from first_agent.game_generator import (
+ )
+ from first_agent.ideation import generate_idea
+ from first_agent.memory import AgentMemory
++from first_agent.reference_library import select_game_references
++from first_agent.reviewer import review_and_refine_game
+ from first_agent.tools import brainstorm_next_steps, get_current_time
+ from first_agent.writer import Entert2Writer
+ 
+@@ -27,15 +29,25 @@ class FirstAgent:
+         return OpenAI(api_key=self.settings.openai_api_key)
+ 
+     def run(self, goal: str) -> str:
++        references = select_game_references(goal, self.settings.entert2_path)
+         request = build_generation_request(goal)
+-        game = generate_game(request)
++        game = generate_game(request, references=references)
++        review = review_and_refine_game(game)
++        game = review.game
+         memory = AgentMemory(goal=goal)
+         memory.remember_observation(f"Goal received at {get_current_time()}")
+         next_steps = brainstorm_next_steps(goal)
+         memory.remember_action("Generated local next-step plan")
++        memory.remember_observation(
++            "Review status: " + ("passed" if review.passed else "needs attention")
++        )
++        if references:
++            memory.remember_observation(
++                "Reference games: " + ", ".join(reference.name for reference in references)
++            )
+ 
+         if self.client is None:
+-            return self._fallback_response(memory, next_steps, game)
++            return self._fallback_response(memory, next_steps, game, references, review)
+ 
+         response = self.client.responses.create(
+             model=self.settings.openai_model,
+@@ -47,7 +59,7 @@ class FirstAgent:
+                 {
+                     "role": "user",
+                     "content": (
+-                        f"{build_user_prompt(request)}\n"
++                        f"{build_user_prompt(request, references=references)}\n"
+                         f"Current observations: {memory.observations}\n"
+                         f"Planning hints: {next_steps}"
+                     )
+@@ -58,14 +70,36 @@ class FirstAgent:
+         return response.output_text.strip()
+ 
+     def write_directly(self, goal: str, repo_path: str | None = None) -> str:
++        target_repo = repo_path or self.settings.entert2_path
++        references = select_game_references(goal, target_repo)
+         request = build_generation_request(goal)
+-        game = generate_game(request)
+-        writer = Entert2Writer(repo_path or self.settings.entert2_path)
++        game = generate_game(request, references=references)
++        review = review_and_refine_game(game)
++        game = review.game
++        writer = Entert2Writer(target_repo)
+         written_paths = writer.write(game)
+         route_url = f"http://localhost:8080/#/{request.component_key}"
+         return "\n".join(
+             [
+                 f"Wrote {request.game_name} directly into entert2.",
++                f"Engine: {game.engine_name}",
++                (
++                    "Review: passed"
++                    if review.passed
++                    else "Review: needs attention on "
++                    + ", ".join(check.name for check in review.checks if not check.passed)
++                ),
++                (
++                    "Auto-refinements: " + ", ".join(review.refinements)
++                    if review.refinements
++                    else "Auto-refinements: none"
++                ),
++                (
++                    "Reference games: "
++                    + ", ".join(reference.name for reference in references)
++                    if references
++                    else "Reference games: none"
++                ),
+                 f"Open URL: {route_url}",
+                 *[f"- {path}" for path in written_paths],
+             ]
+@@ -85,12 +119,26 @@ class FirstAgent:
+         memory: AgentMemory,
+         next_steps: list[str],
+         game,
++        references,
++        review,
+     ) -> str:
++        reference_lines = (
++            ["Reference games used:", *[f"- {reference.name} ({reference.template_hint})" for reference in references]]
++            if references
++            else ["Reference games used: none"]
++        )
++        review_lines = [
++            f"Review status: {'passed' if review.passed else 'needs attention'}",
++            *[f"- {check.name}: {'ok' if check.passed else 'fix'}" for check in review.checks],
++        ]
+         plan = "\n".join(
+             [
+                 f"{self.settings.agent_name} fallback mode",
+                 f"Goal: {memory.goal}",
+                 f"Observations: {'; '.join(memory.observations)}",
++                f"Engine selected: {game.engine_name}",
++                *reference_lines,
++                *review_lines,
+                 "Planned next steps:",
+                 *[f"- {step}" for step in next_steps],
+                 "Immediate action: Generate a first-pass component scaffold for entert2.",
+diff --git a/first-agent/first_agent/game_generator.py b/first-agent/first_agent/game_generator.py
+index 357fd55..469d9ba 100644
+--- a/first-agent/first_agent/game_generator.py
++++ b/first-agent/first_agent/game_generator.py
+@@ -1,6 +1,8 @@
+ import re
+ from dataclasses import dataclass
+ 
++from first_agent.reference_library import GameReference
++
+ 
+ @dataclass
+ class GameGenerationRequest:
+@@ -12,6 +14,7 @@ class GameGenerationRequest:
+ @dataclass
+ class GeneratedGame:
+     request: GameGenerationRequest
++    engine_name: str
+     component_code: str
+     screen_code: str
+     main_import: str
+@@ -62,7 +65,15 @@ def build_system_prompt() -> str:
+     )
+ 
+ 
+-def build_user_prompt(request: GameGenerationRequest) -> str:
++def build_user_prompt(request: GameGenerationRequest, references: list[GameReference] | None = None) -> str:
++    reference_lines = ""
++    if references:
++        reference_lines = "\nReferences from entert2:\n" + "\n".join(
++            [
++                f"- {reference.name} [{reference.template_hint}]: {reference.excerpt}"
++                for reference in references
++            ]
++        )
+     return (
+         f"Game idea: {request.idea}\n"
+         f"Game component name: {request.game_name}\n"
+@@ -70,17 +81,28 @@ def build_user_prompt(request: GameGenerationRequest) -> str:
+         "Target stack: Vue 2, Vuetify 2, Firebase-ready app.\n"
+         "Reference pattern: standalone component + screen wrapper + integration snippets.\n"
+         "Use a self-contained game loop, mobile-friendly layout, and shared session stats."
++        f"{reference_lines}"
+     )
+ 
+ 
+-def _select_template(request: GameGenerationRequest) -> str:
++def _select_template(request: GameGenerationRequest, references: list[GameReference] | None = None) -> str:
+     idea = request.idea.lower()
++    if "punch" in idea or "box" in idea or "fight" in idea or "battle" in idea or "duel" in idea:
++        return "duel"
++    if "jump" in idea or "runner" in idea or "obstacle" in idea or "avoid" in idea or "survive" in idea:
++        return "runner"
+     if "reaction" in idea or "tap" in idea or "timed" in idea:
+         return "reaction"
+     if "memory" in idea or "symbol" in idea or "hidden order" in idea:
+         return "memory"
+     if "pattern" in idea or "sequence" in idea or "sorting" in idea:
+         return "pattern"
++
++    if references:
++        for reference in references:
++            if reference.template_hint in {"pick-one", "reaction", "memory", "pattern", "duel", "runner"}:
++                return reference.template_hint
++
+     return "pick-one"
+ 
+ 
+@@ -106,8 +128,12 @@ export default {{
+ """
+ 
+ 
+-def _build_component_code(request: GameGenerationRequest) -> str:
+-    template_name = _select_template(request)
++def _build_component_code(request: GameGenerationRequest, references: list[GameReference] | None = None) -> str:
++    template_name = _select_template(request, references=references)
++    if template_name == "duel":
++        return _build_duel_component(request)
++    if template_name == "runner":
++        return _build_runner_component(request)
+     if template_name == "reaction":
+         return _build_reaction_component(request)
+     if template_name == "memory":
+@@ -468,6 +494,28 @@ def _build_memory_component(request: GameGenerationRequest) -> str:
+             </v-chip>
+           </div>
+ 
++          <v-card outlined class="pa-4 mb-4 text-center sequence-panel">
++            <div class="text-caption mb-2">Sequencia alvo</div>
++            <div v-if="revealMode" class="text-h2 font-weight-bold mb-2 sequence-current">
++              {{{{ highlightedSymbol || '...' }}}}
++            </div>
++            <div v-else class="text-h5 font-weight-bold mb-2">
++              {{{{ playerProgressText }}}}
++            </div>
++            <div class="d-flex justify-center flex-wrap">
++              <v-chip
++                v-for="(item, index) in sequence"
++                :key="`${{item}}-${{index}}`"
++                class="ma-1"
++                :color="chipColor(item, index)"
++                :outlined="!isChipFilled(index)"
++                dark
++              >
++                {{{{ chipLabel(item, index) }}}}
++              </v-chip>
++            </div>
++          </v-card>
++
+           <v-row dense class="mb-4">
+             <v-col
+               v-for="symbol in symbols"
+@@ -535,6 +583,12 @@ export default {{
+     }},
+     gameOver () {{
+       return this.session.losses >= this.maxLives
++    }},
++    playerProgressText () {{
++      if (this.sequence.length === 0) {{
++        return 'Nenhuma sequencia carregada'
++      }}
++      return `${{this.playerInput.length}} / ${{this.sequence.length}} simbolos`
+     }}
+   }},
+   beforeDestroy () {{
+@@ -619,6 +673,24 @@ export default {{
+       }}
+       return 'primary'
+     }},
++    isChipFilled (index) {{
++      return this.revealMode || index < this.playerInput.length
++    }},
++    chipLabel (symbol, index) {{
++      if (this.revealMode || index < this.playerInput.length) {{
++        return symbol
++      }}
++      return '?'
++    }},
++    chipColor (symbol, index) {{
++      if (this.highlightedSymbol === symbol && this.revealMode) {{
++        return 'success'
++      }}
++      if (index < this.playerInput.length) {{
++        return 'primary'
++      }}
++      return 'grey darken-1'
++    }},
+     resetGame () {{
+       this.clearTimer()
+       this.resetSession()
+@@ -640,6 +712,14 @@ export default {{
+   min-height: 92px;
+   font-size: 2rem;
+ }}
++
++.sequence-panel {{
++  background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
++}}
++
++.sequence-current {{
++  min-height: 72px;
++}}
+ </style>
+ """
+ 
+@@ -871,6 +951,482 @@ export default {{
+ """
+ 
+ 
++def _build_duel_component(request: GameGenerationRequest) -> str:
++    return f"""<template>
++  <v-container class="{request.component_key} fill-height">
++    <v-row justify="center">
++      <v-col cols="12" md="8" lg="6">
++        <v-card class="pa-6" elevation="6">
++          <div class="text-center mb-6">
++            <div class="text-overline mb-2">Generated game</div>
++            <h1 class="text-h4 mb-2">{request.game_name}</h1>
++            <p class="mb-0">Leia o movimento do rival e escolha a melhor resposta para vencer o round.</p>
++          </div>
++
++          <v-alert
++            v-if="message"
++            dense
++            text
++            :type="alertType"
++            class="mb-4"
++          >
++            {{{{ message }}}}
++          </v-alert>
++
++          <v-card outlined class="pa-4 mb-4 text-left">
++            <div class="text-subtitle-1 font-weight-bold mb-2">Como jogar</div>
++            <ul class="mb-0">
++              <li>Cada round o rival prepara um ataque.</li>
++              <li>Escolha entre esquivar, bloquear ou contra-atacar.</li>
++              <li>A resposta certa causa dano no rival e rende pontos.</li>
++              <li>A resposta errada tira vida do seu lutador.</li>
++              <li>Derrote o rival em 3 rounds ou sobreviva ate o fim.</li>
++            </ul>
++          </v-card>
++
++          <game-stats-bar :session="session" />
++
++          <v-row class="mb-4">
++            <v-col cols="6">
++              <v-card outlined class="pa-4 text-center">
++                <div class="text-caption">Sua vida</div>
++                <div class="text-h4">{{{{ playerHealth }}}}</div>
++              </v-card>
++            </v-col>
++            <v-col cols="6">
++              <v-card outlined class="pa-4 text-center">
++                <div class="text-caption">Vida rival</div>
++                <div class="text-h4">{{{{ rivalHealth }}}}</div>
++              </v-card>
++            </v-col>
++          </v-row>
++
++          <v-card class="pa-4 mb-4 duel-stage" outlined>
++            <div class="text-overline mb-2">Ataque do rival</div>
++            <div class="text-h5 mb-2">{{{{ currentCue.label }}}}</div>
++            <div class="text-body-1">{{{{ currentCue.hint }}}}</div>
++          </v-card>
++
++          <v-row dense class="mb-4">
++            <v-col cols="12" sm="4">
++              <v-btn block x-large color="primary" :disabled="roundLocked || gameOver" @click="playMove('dodge')">
++                Esquivar
++              </v-btn>
++            </v-col>
++            <v-col cols="12" sm="4">
++              <v-btn block x-large color="warning" :disabled="roundLocked || gameOver" @click="playMove('block')">
++                Bloquear
++              </v-btn>
++            </v-col>
++            <v-col cols="12" sm="4">
++              <v-btn block x-large color="error" :disabled="roundLocked || gameOver" @click="playMove('counter')">
++                Contra-atacar
++              </v-btn>
++            </v-col>
++          </v-row>
++
++          <div class="text-center">
++            <v-btn color="primary" large class="mr-2" :disabled="roundLocked || gameOver" @click="nextRound">
++              Novo round
++            </v-btn>
++            <v-btn text large @click="resetGame">
++              Reiniciar
++            </v-btn>
++          </div>
++        </v-card>
++      </v-col>
++    </v-row>
++  </v-container>
++</template>
++
++<script>
++import GameSessionMixin from './mixins/GameSessionMixin'
++
++const cues = [
++  {{
++    key: 'high-punch',
++    label: 'Jab alto vindo pela esquerda',
++    hint: 'Uma resposta rapida muda o round.',
++    bestMove: 'dodge'
++  }},
++  {{
++    key: 'body-shot',
++    label: 'Golpe forte no corpo',
++    hint: 'Absorver bem o impacto vale mais do que correr.',
++    bestMove: 'block'
++  }},
++  {{
++    key: 'slow-hook',
++    label: 'Gancho lento e previsivel',
++    hint: 'Esta e a chance de virar o round.',
++    bestMove: 'counter'
++  }}
++]
++
++export default {{
++  name: '{request.game_name}',
++  components: {{
++    GameStatsBar: () => import('./GameStatsBar')
++  }},
++  mixins: [GameSessionMixin],
++  data: () => ({{
++    playerHealth: 3,
++    rivalHealth: 3,
++    roundLocked: false,
++    currentCue: cues[0],
++    message: 'Leia o ataque do rival e escolha sua resposta.',
++    alertType: 'info'
++  }}),
++  computed: {{
++    gameOver () {{
++      return this.playerHealth <= 0 || this.rivalHealth <= 0
++    }}
++  }},
++  created () {{
++    this.nextRound()
++  }},
++  methods: {{
++    nextRound () {{
++      if (this.gameOver) {{
++        return
++      }}
++      this.roundLocked = false
++      this.currentCue = cues[Math.floor(Math.random() * cues.length)]
++      this.message = 'Novo round. Leia o ataque e responda.'
++      this.alertType = 'info'
++    }},
++    playMove (move) {{
++      if (this.roundLocked || this.gameOver) {{
++        return
++      }}
++      this.roundLocked = true
++      this.startSessionRound('playing')
++      if (move === this.currentCue.bestMove) {{
++        this.rivalHealth -= 1
++        this.registerWin(40, 'won')
++        this.message = this.gameOver
++          ? 'Nocaute. Voce venceu a luta.'
++          : 'Boa leitura. O rival sentiu o golpe.'
++        this.alertType = 'success'
++      }} else {{
++        this.playerHealth -= 1
++        this.registerLoss('lost')
++        this.message = this.gameOver
++          ? 'Seu lutador caiu. Fim de luta.'
++          : 'Voce respondeu mal e tomou dano.'
++        this.alertType = 'error'
++      }}
++    }},
++    resetGame () {{
++      this.resetSession()
++      this.playerHealth = 3
++      this.rivalHealth = 3
++      this.roundLocked = false
++      this.message = 'Luta reiniciada. Leia o ataque do rival.'
++      this.alertType = 'info'
++      this.nextRound()
++    }}
++  }}
++}}
++</script>
++
++<style scoped>
++.duel-stage {{
++  background: linear-gradient(135deg, #1e293b, #334155);
++  color: #fff;
++}}
++</style>
++"""
++
++
++def _build_runner_component(request: GameGenerationRequest) -> str:
++    return f"""<template>
++  <v-container class="{request.component_key} fill-height">
++    <v-row justify="center">
++      <v-col cols="12" md="8" lg="6">
++        <v-card class="pa-6 text-center" elevation="6">
++          <div class="text-overline mb-2">Generated game</div>
++          <h1 class="text-h4 mb-2">{request.game_name}</h1>
++          <p class="mb-6">
++            Toque para pular os obstaculos e sobreviver o maximo de rodadas possivel.
++          </p>
++
++          <v-alert
++            v-if="message"
++            dense
++            text
++            :type="alertType"
++            class="mb-4"
++          >
++            {{{{ message }}}}
++          </v-alert>
++
++          <v-card outlined class="pa-4 mb-4 text-left">
++            <div class="text-subtitle-1 font-weight-bold mb-2">Como jogar</div>
++            <ul class="mb-0">
++              <li>Clique em comecar para iniciar a corrida.</li>
++              <li>Quando um obstaculo aparecer, toque em pular no momento certo.</li>
++              <li>Se voce pular cedo demais ou tarde demais, perde uma vida.</li>
++              <li>Cada obstaculo superado aumenta sua pontuacao.</li>
++              <li>Sobreviva ate o fim das vidas para buscar recorde.</li>
++            </ul>
++          </v-card>
++
++          <game-stats-bar :session="session" />
++
++          <v-row class="mb-4">
++            <v-col cols="12" sm="4">
++              <v-card outlined class="pa-3">
++                <div class="text-caption">Distancia</div>
++                <div class="text-h5">{{{{ distance }}}}</div>
++              </v-card>
++            </v-col>
++            <v-col cols="12" sm="4">
++              <v-card outlined class="pa-3">
++                <div class="text-caption">Velocidade</div>
++                <div class="text-h5">{{{{ speed }}}}</div>
++              </v-card>
++            </v-col>
++            <v-col cols="12" sm="4">
++              <v-card outlined class="pa-3">
++                <div class="text-caption">Vidas</div>
++                <div class="text-h5">{{{{ livesLeft }}}}</div>
++              </v-card>
++            </v-col>
++          </v-row>
++
++          <div class="runner-stage mb-6" :class="stageClass" @click="jump">
++            <div class="runner-obstacle" :style="obstacleStyle"></div>
++            <div class="runner-player" :class="isJumping ? 'runner-player--jumping' : ''"></div>
++            <div class="runner-hint">{{{{ stageHint }}}}</div>
++          </div>
++
++          <div class="text-center">
++            <v-btn color="primary" large class="mr-2 mb-2" :disabled="gameOver" @click="startGame">
++              {{{{ running ? 'Jogar novamente' : 'Comecar corrida' }}}}
++            </v-btn>
++            <v-btn color="success" large class="mb-2" :disabled="!running || gameOver || isJumping" @click="jump">
++              Pular
++            </v-btn>
++          </div>
++        </v-card>
++      </v-col>
++    </v-row>
++  </v-container>
++</template>
++
++<script>
++import GameSessionMixin from './mixins/GameSessionMixin'
++
++export default {{
++  name: '{request.game_name}',
++  components: {{
++    GameStatsBar: () => import('./GameStatsBar')
++  }},
++  mixins: [GameSessionMixin],
++  data: () => ({{
++    maxLives: 3,
++    distance: 0,
++    speed: 1,
++    running: false,
++    isJumping: false,
++    obstacleCleared: false,
++    obstaclePosition: 100,
++    tickId: null,
++    jumpTimeoutId: null,
++    message: 'Comece a corrida e pule quando o bloco se aproximar.',
++    alertType: 'info'
++  }}),
++  computed: {{
++    livesLeft () {{
++      return Math.max(this.maxLives - this.session.losses, 0)
++    }},
++    gameOver () {{
++      return this.session.losses >= this.maxLives
++    }},
++    stageClass () {{
++      return this.running ? 'runner-stage--running' : 'runner-stage--idle'
++    }},
++    stageHint () {{
++      if (!this.running) {{
++        return 'Toque em Comecar corrida'
++      }}
++      if (this.obstacleInJumpZone) {{
++        return 'Pule agora'
++      }}
++      return 'Prepare o pulo'
++    }},
++    obstacleStyle () {{
++      return {{
++        left: `${{this.obstaclePosition}}%`
++      }}
++    }},
++    obstacleInJumpZone () {{
++      return this.obstaclePosition <= 38 && this.obstaclePosition >= 18
++    }},
++    obstacleInDangerZone () {{
++      return this.obstaclePosition <= 24 && this.obstaclePosition >= 8
++    }}
++  }},
++  beforeDestroy () {{
++    this.clearTick()
++    this.clearJumpTimeout()
++  }},
++  methods: {{
++    clearTick () {{
++      if (this.tickId) {{
++        clearInterval(this.tickId)
++        this.tickId = null
++      }}
++    }},
++    clearJumpTimeout () {{
++      if (this.jumpTimeoutId) {{
++        clearTimeout(this.jumpTimeoutId)
++        this.jumpTimeoutId = null
++      }}
++    }},
++    startGame () {{
++      if (this.gameOver) {{
++        return
++      }}
++      this.clearTick()
++      this.clearJumpTimeout()
++      this.running = true
++      this.distance = 0
++      this.speed = 1
++      this.obstaclePosition = 100
++      this.isJumping = false
++      this.obstacleCleared = false
++      this.message = 'Obstaculo vindo. Prepare o pulo.'
++      this.alertType = 'info'
++      this.tickId = setInterval(this.advanceGame, 100)
++    }},
++    advanceGame () {{
++      if (!this.running || this.gameOver) {{
++        this.clearTick()
++        return
++      }}
++      this.obstaclePosition -= 5 + this.speed
++      this.distance += 1
++
++      if (this.obstacleInDangerZone && !this.isJumping) {{
++        this.registerLoss('lost')
++        this.alertType = 'error'
++        this.message = this.gameOver
++          ? 'Fim de corrida. O obstaculo te derrubou.'
++          : 'Voce bateu no obstaculo. Tente de novo.'
++        this.running = false
++        this.clearTick()
++        return
++      }}
++
++      if (this.obstaclePosition < 8 && this.isJumping && !this.obstacleCleared) {{
++        this.obstacleCleared = true
++        this.startSessionRound('running')
++        this.registerWin(15, 'won')
++        this.speed = Math.min(this.speed + 1, 6)
++        this.message = 'Boa. Obstaculo superado.'
++        this.alertType = 'success'
++      }}
++
++      if (this.obstaclePosition < -10) {{
++        this.obstaclePosition = 100
++        this.obstacleCleared = false
++        if (this.running) {{
++          this.message = 'Novo obstaculo chegando.'
++          this.alertType = 'info'
++        }}
++      }}
++    }},
++    jump () {{
++      if (!this.running || this.isJumping || this.gameOver) {{
++        return
++      }}
++      this.clearJumpTimeout()
++      this.isJumping = true
++      this.message = this.obstacleInJumpZone
++        ? 'Boa hora para pular.'
++        : 'Pulo acionado. Prepare a aterrissagem.'
++      this.alertType = this.obstacleInJumpZone ? 'success' : 'warning'
++      this.jumpTimeoutId = window.setTimeout(() => {{
++        this.isJumping = false
++        this.jumpTimeoutId = null
++      }}, 700)
++    }},
++    resetGame () {{
++      this.clearTick()
++      this.clearJumpTimeout()
++      this.resetSession()
++      this.distance = 0
++      this.speed = 1
++      this.running = false
++      this.isJumping = false
++      this.obstacleCleared = false
++      this.obstaclePosition = 100
++      this.message = 'Jogo reiniciado.'
++      this.alertType = 'info'
++    }}
++  }}
++}}
++</script>
++
++<style scoped>
++.runner-stage {{
++  position: relative;
++  min-height: 220px;
++  border-radius: 24px;
++  overflow: hidden;
++  transition: background-color 0.2s ease;
++}}
++
++.runner-stage--idle {{
++  background: linear-gradient(135deg, #cbd5e1, #94a3b8);
++}}
++
++.runner-stage--running {{
++  background: linear-gradient(135deg, #93c5fd, #60a5fa);
++}}
++
++.runner-player {{
++  position: absolute;
++  left: 18%;
++  bottom: 24px;
++  width: 42px;
++  height: 42px;
++  border-radius: 10px;
++  background: #0f172a;
++  transition: transform 0.18s ease;
++}}
++
++.runner-player--jumping {{
++  transform: translateY(-90px);
++}}
++
++.runner-obstacle {{
++  position: absolute;
++  bottom: 24px;
++  width: 28px;
++  height: 54px;
++  border-radius: 8px;
++  background: #dc2626;
++  transform: translateX(-50%);
++}}
++
++.runner-hint {{
++  position: absolute;
++  top: 18px;
++  left: 50%;
++  transform: translateX(-50%);
++  color: #0f172a;
++  font-weight: 700;
++  background: rgba(255, 255, 255, 0.75);
++  padding: 6px 12px;
++  border-radius: 999px;
++}}
++</style>
++"""
++
++
+ def _build_pattern_component(request: GameGenerationRequest) -> str:
+     return f"""<template>
+   <v-container class="{request.component_key} fill-height">
+@@ -1081,13 +1637,15 @@ export default {{
+ """
+ 
+ 
+-def generate_game(request: GameGenerationRequest) -> GeneratedGame:
++def generate_game(request: GameGenerationRequest, references: list[GameReference] | None = None) -> GeneratedGame:
+     tag_name = to_kebab_case(request.game_name)
+-    component_code = _build_component_code(request)
++    engine_name = _select_template(request, references=references)
++    component_code = _build_component_code(request, references=references)
+     screen_code = _screen_code(request)
+ 
+     return GeneratedGame(
+         request=request,
++        engine_name=engine_name,
+         component_code=component_code,
+         screen_code=screen_code,
+         main_import=f"import {request.game_name}Screen from '../src/components/Screens/{request.game_name}'",
+@@ -1111,6 +1669,7 @@ def build_fallback_output(game: GeneratedGame) -> str:
+ Name: {request.game_name}
+ Key: {request.component_key}
+ Idea: {request.idea}
++Engine: {game.engine_name}
+ 
+ # Main Component: src/components/{request.game_name}.vue
+ ```vue
