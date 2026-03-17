@@ -253,8 +253,18 @@ def _review_checks(game: GeneratedGame) -> list[ReviewCheck]:
                 ),
                 ReviewCheck(
                     name="platform-hub-data-driven",
-                    passed=_has_any(code, ["buildLevels", "platforms:", "doors:", "pickups:", "currentLevel"]),
+                    passed=_has_any(code, ["buildLevels", "buildLevelsFromTasks", "platforms:", "doors:", "pickups:", "currentLevel"]),
                     details="Platform hub games should be configured from level/task data, not only hardcoded button stacks.",
+                ),
+                ReviewCheck(
+                    name="platform-hub-slot-mapping",
+                    passed=_has_any(code, ["buildLevelsFromTasks", "sourceTasks", "db.collection(`users/${this.$route.params.user}/e`)", "tasks reais do evento"]),
+                    details="Platform hub games should map real event tasks into stable level slots when event context exists.",
+                ),
+                ReviewCheck(
+                    name="platform-hub-stage-treatment",
+                    passed=_has_any(code, ["phaser-stage--bleed", "task-modal__speaker", "task-modal", "cols=\"12\""]),
+                    details="Platform hub games should give the stage visual priority and keep auxiliary panels secondary.",
                 ),
             ]
         )

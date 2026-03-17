@@ -145,8 +145,9 @@ def build_user_prompt(request: GameGenerationRequest, references: list[GameRefer
     if references and any(reference.name == "Platform" for reference in references):
         platform_hint = (
             "\nA Platform-style task hub reference is available. "
-            "If it fits the idea, prefer a Phaser-driven side-scroller with level data for hero, platforms, doors, houses, keys, coins, trees, and poles. "
-            "Use a main playable scene plus a side panel for progress, history, or task context. "
+            "If it fits the idea, prefer a Phaser-driven side-scroller with stable level templates for hero, platforms, doors, houses, keys, coins, trees, and poles. "
+            "Map real event tasks into pre-existing door slots instead of inventing a new geometry per task. "
+            "Use a full-bleed playable stage, doors that open task modals over the map, and a secondary panel that can move below the stage when the map needs more room. "
             "Lean toward JSON-like level configuration and door-to-task navigation instead of a generic card or board layout."
         )
     return (
@@ -5730,7 +5731,7 @@ def _build_platform_hub_component(request: GameGenerationRequest) -> str:
       <v-col cols="12" xl="11">
         <v-card class="hub-surface overflow-hidden" elevation="8">
           <v-row no-gutters>
-            <v-col cols="12" lg="8">
+            <v-col cols="12">
               <div class="hub-stage pa-5 pa-md-6">
                 <div class="d-flex flex-wrap align-center justify-space-between mb-5">
                   <div>
@@ -5765,7 +5766,7 @@ def _build_platform_hub_component(request: GameGenerationRequest) -> str:
                     <v-chip color="primary" outlined>{{ currentLevel.theme }}</v-chip>
                   </div>
 
-                  <div ref="phaserHost" class="phaser-stage mb-4"></div>
+                  <div ref="phaserHost" class="phaser-stage phaser-stage--bleed mb-4"></div>
 
                   <div class="stage-hud mb-4">
                     <div class="stage-hud__item">
@@ -5807,25 +5808,34 @@ def _build_platform_hub_component(request: GameGenerationRequest) -> str:
                   </div>
                 </v-card>
 
-                <v-card outlined class="task-modal pa-4 pa-md-5" v-if="activeTask">
-                  <div class="d-flex align-center justify-space-between mb-3">
-                    <div>
-                      <div class="text-overline mb-1">Task ativa</div>
-                      <div class="text-h5">{{ activeTask.title }}</div>
+                <v-card outlined class="task-modal pa-0" v-if="activeTask">
+                  <div class="task-modal__header pa-4 pa-md-5">
+                    <div class="d-flex align-center justify-space-between">
+                      <div>
+                        <div class="text-overline mb-1">Transmissao da task</div>
+                        <div class="text-h5">{{ activeTask.title }}</div>
+                      </div>
+                      <v-btn icon class="task-modal__close" @click="closeTask">
+                        <v-icon>mdi-close</v-icon>
+                      </v-btn>
                     </div>
-                    <v-btn icon @click="closeTask">
-                      <v-icon>mdi-close</v-icon>
-                    </v-btn>
+                    <div class="task-modal__speaker mt-3">
+                      <div class="task-modal__avatar">
+                        <v-icon color="white" size="18">mdi-message-badge-outline</v-icon>
+                      </div>
+                      <div class="task-modal__bubble">
+                        {{ activeTask.description }}
+                      </div>
+                    </div>
                   </div>
-                  <p class="mb-4">{{ activeTask.description }}</p>
-                  <v-row dense class="mb-4">
+                  <v-row dense class="px-4 px-md-5 mb-4">
                     <v-col cols="12" sm="6" v-for="goal in activeTask.goals" :key="goal">
                       <v-sheet rounded class="task-goal pa-3">
                         {{ goal }}
                       </v-sheet>
                     </v-col>
                   </v-row>
-                  <div class="d-flex flex-wrap gap-12">
+                  <div class="d-flex flex-wrap gap-12 px-4 px-md-5 pb-4 pb-md-5">
                     <v-btn color="success" large @click="completeTask">
                       Concluir task
                     </v-btn>
@@ -5840,7 +5850,7 @@ def _build_platform_hub_component(request: GameGenerationRequest) -> str:
               </div>
             </v-col>
 
-            <v-col cols="12" lg="4">
+            <v-col cols="12">
               <div class="hub-sidebar pa-5 pa-md-6">
                 <v-card outlined class="pa-4 mb-4 sidebar-card">
                   <div class="text-subtitle-1 font-weight-bold mb-2">Como jogar</div>
@@ -5848,13 +5858,13 @@ def _build_platform_hub_component(request: GameGenerationRequest) -> str:
                     <li>Ande pelo mapa como no Platform original.</li>
                     <li>Colete moedas e pegue a chave da fase.</li>
                     <li>Fique sobre a porta certa e abra a task.</li>
-                    <li>Conclua as seis tasks antes de atingir 3 perdas.</li>
+                    <li>Conclua as {{ tasks.length }} tasks antes de atingir 3 perdas.</li>
                   </ul>
                 </v-card>
 
                 <v-card outlined class="pa-4 mb-4 sidebar-card">
                   <div class="text-subtitle-1 font-weight-bold mb-2">Objetivo</div>
-                  <p class="mb-2">Atravesse as fases, abra as portas e conclua as seis tasks do hub.</p>
+                  <p class="mb-2">Atravesse as fases, abra as portas e conclua as {{ tasks.length }} tasks do hub.</p>
                   <div class="text-caption">Fase atual</div>
                   <div class="text-h6">{{ currentLevel.title }}</div>
                   <div class="text-caption mt-3">Session score</div>
@@ -5864,9 +5874,9 @@ def _build_platform_hub_component(request: GameGenerationRequest) -> str:
                 <v-card outlined class="pa-4 mb-4 sidebar-card">
                   <div class="text-subtitle-1 font-weight-bold mb-2">Leitura do mapa</div>
                   <ul class="mb-0">
-                    <li>O level nasce de dados no estilo hero, platforms, doors e pickups.</li>
-                    <li>As casas sao pano de fundo visual para cada porta.</li>
-                    <li>A porta em foco muda pela colisao do heroi no palco Phaser.</li>
+                    <li>O level nasce de templates estaveis no estilo hero, platforms, doors e pickups.</li>
+                    <li>As tasks reais do evento preenchem os slots das portas.</li>
+                    <li>O modal abre por cima do mapa, sem desmontar o palco Phaser.</li>
                   </ul>
                 </v-card>
 
@@ -5903,90 +5913,145 @@ def _build_platform_hub_component(request: GameGenerationRequest) -> str:
 </template>
 
 <script>
+import { db } from '../main'
 import GameSessionMixin from './mixins/GameSessionMixin'
+
+const FALLBACK_TASKS = [
+  {
+    id: 'task-1',
+    title: 'Task de onboarding',
+    description: 'Primeira task liberada pela rua principal.',
+    goals: ['Entrar na primeira porta', 'Ler o briefing', 'Fechar a etapa'],
+    completed: false,
+    summary: 'Casa inicial do hub',
+    component: 'welcome'
+  },
+  {
+    id: 'task-2',
+    title: 'Task de decisao rapida',
+    description: 'Uma task curta com resposta imediata.',
+    goals: ['Abrir a segunda casa', 'Concluir sem perder ritmo'],
+    completed: false,
+    summary: 'Porta lateral',
+    component: 'vote'
+  },
+  {
+    id: 'task-3',
+    title: 'Task de puzzle',
+    description: 'Uma fase de leitura e resolucao visual.',
+    goals: ['Subir a colina', 'Entrar na porta elevada'],
+    completed: false,
+    summary: 'Casa alta',
+    component: 'crosswords'
+  },
+  {
+    id: 'task-4',
+    title: 'Task final',
+    description: 'Fechamento da jornada com mais pressao.',
+    goals: ['Abrir a ultima porta', 'Fechar a rodada final'],
+    completed: false,
+    summary: 'Casa final',
+    component: 'streetview'
+  }
+]
+
+const GROUND_Y = 546
+const HERO_Y = 525
+const ELEVATED_PLATFORM_Y = 378
+const MID_PLATFORM_Y = 336
+const HIGH_PLATFORM_Y = 252
+const ELEVATED_DOOR_Y = 378
+const GROUND_DOOR_Y = 546
+const TREE_Y = 546
+const POLE_Y = 546
+const BASE_GAME_WIDTH = 960
+const BASE_GAME_HEIGHT = 600
+const WORLD_SCALE = 1.2
+const GAME_WIDTH = Math.round(BASE_GAME_WIDTH * WORLD_SCALE)
+const GAME_HEIGHT = Math.round(BASE_GAME_HEIGHT * WORLD_SCALE)
 
 const buildLevels = () => ([
   {
     id: 'level-0',
     title: 'Rua das portas',
     theme: 'Entrada principal',
-    hero: { x: 60, y: 280 },
+    hero: { x: 21, y: HERO_Y },
     platforms: [
-      { image: 'ground', x: 0, y: 346, visible: true },
-      { image: 'grass:4x1', x: 300, y: 250, visible: true },
-      { image: 'grass:2x1', x: 520, y: 210, visible: true }
+      { image: 'ground', x: 0, y: GROUND_Y, visible: true },
+      { image: 'grass:4x1', x: 300, y: HIGH_PLATFORM_Y, visible: true },
+      { image: 'grass:2x1', x: 520, y: MID_PLATFORM_Y, visible: true }
     ],
     doors: [
-      { id: 'task-1', label: 'Porta 01', x: 180, y: 346, route: 'task-1', house: 'house1' },
-      { id: 'task-2', label: 'Porta 02', x: 430, y: 346, route: 'task-2', house: 'house2' }
+      { id: 'task-1', label: 'Porta 01', x: 180, y: GROUND_DOOR_Y, route: 'task-1', house: 'house1' },
+      { id: 'task-2', label: 'Porta 02', x: 430, y: GROUND_DOOR_Y, route: 'task-2', house: 'house2' }
     ],
     pickups: [
-      { id: 'coin-1', kind: 'coin', label: 'Moeda baixa', x: 320, y: 220 },
-      { id: 'coin-2', kind: 'coin', label: 'Moeda alta', x: 560, y: 180 },
-      { id: 'key-1', kind: 'key', label: 'Chave da rua', x: 680, y: 300 }
+      { id: 'coin-1', kind: 'coin', label: 'Moeda baixa', x: 320, y: 483 },
+      { id: 'coin-2', kind: 'coin', label: 'Moeda alta', x: 560, y: 294 },
+      { id: 'key-1', kind: 'key', label: 'Chave da rua', x: 680, y: 504 }
     ],
     trees: [
-      { x: 100, y: 346 },
-      { x: 760, y: 346 }
+      { x: 100, y: TREE_Y },
+      { x: 760, y: TREE_Y }
     ],
     poles: [
-      { x: 30, y: 346 }
+      { x: 30, y: POLE_Y }
     ]
   },
   {
     id: 'level-1',
     title: 'Colina das tasks',
     theme: 'Camada alta',
-    hero: { x: 60, y: 280 },
+    hero: { x: 21, y: HERO_Y },
     platforms: [
-      { image: 'ground', x: 0, y: 346, visible: true },
-      { image: 'grass:6x1', x: 260, y: 280, visible: true },
-      { image: 'grass:4x1', x: 610, y: 210, visible: true }
+      { image: 'ground', x: 0, y: GROUND_Y, visible: true },
+      { image: 'grass:6x1', x: 260, y: ELEVATED_PLATFORM_Y, visible: true },
+      { image: 'grass:4x1', x: 610, y: HIGH_PLATFORM_Y, visible: true }
     ],
     doors: [
-      { id: 'task-3', label: 'Porta 03', x: 350, y: 280, route: 'task-3', house: 'house4' },
-      { id: 'task-4', label: 'Porta 04', x: 720, y: 346, route: 'task-4', house: 'house5' }
+      { id: 'task-3', label: 'Porta 03', x: 350, y: ELEVATED_DOOR_Y, route: 'task-3', house: 'house4' },
+      { id: 'task-4', label: 'Porta 04', x: 720, y: GROUND_DOOR_Y, route: 'task-4', house: 'house5' }
     ],
     pickups: [
-      { id: 'coin-3', kind: 'coin', label: 'Moeda do morro', x: 310, y: 240 },
-      { id: 'coin-4', kind: 'coin', label: 'Moeda final', x: 670, y: 170 },
-      { id: 'key-2', kind: 'key', label: 'Chave da colina', x: 790, y: 300 }
+      { id: 'coin-3', kind: 'coin', label: 'Moeda do morro', x: 310, y: 336 },
+      { id: 'coin-4', kind: 'coin', label: 'Moeda final', x: 670, y: 210 },
+      { id: 'key-2', kind: 'key', label: 'Chave da colina', x: 790, y: 504 }
     ],
     trees: [
-      { x: 170, y: 346 },
-      { x: 845, y: 346 }
+      { x: 170, y: TREE_Y },
+      { x: 845, y: TREE_Y }
     ],
     poles: [
-      { x: 520, y: 346 }
+      { x: 520, y: POLE_Y }
     ]
   },
   {
     id: 'level-2',
     title: 'Bairro final',
     theme: 'Fechamento da jornada',
-    hero: { x: 60, y: 280 },
+    hero: { x: 21, y: HERO_Y },
     platforms: [
-      { image: 'ground', x: 0, y: 346, visible: true },
-      { image: 'grass:2x1', x: 220, y: 290, visible: true },
-      { image: 'grass:4x1', x: 430, y: 250, visible: true },
-      { image: 'grass:6x1', x: 690, y: 200, visible: true }
+      { image: 'ground', x: 0, y: GROUND_Y, visible: true },
+      { image: 'grass:2x1', x: 220, y: 420, visible: true },
+      { image: 'grass:4x1', x: 430, y: 370, visible: true },
+      { image: 'grass:6x1', x: 690, y: HIGH_PLATFORM_Y, visible: true }
     ],
     doors: [
-      { id: 'task-5', label: 'Porta 05', x: 500, y: 250, route: 'task-5', house: 'house1' },
-      { id: 'task-6', label: 'Porta 06', x: 860, y: 346, route: 'task-6', house: 'house2' }
+      { id: 'task-5', label: 'Porta 05', x: 500, y: 420, route: 'task-5', house: 'house1' },
+      { id: 'task-6', label: 'Porta 06', x: 860, y: GROUND_DOOR_Y, route: 'task-6', house: 'house2' }
     ],
     pickups: [
-      { id: 'coin-5', kind: 'coin', label: 'Moeda da escadaria', x: 250, y: 250 },
-      { id: 'coin-6', kind: 'coin', label: 'Moeda do bairro final', x: 760, y: 150 },
-      { id: 'key-3', kind: 'key', label: 'Chave do bairro final', x: 900, y: 300 }
+      { id: 'coin-5', kind: 'coin', label: 'Moeda da escadaria', x: 250, y: 378 },
+      { id: 'coin-6', kind: 'coin', label: 'Moeda do bairro final', x: 760, y: 210 },
+      { id: 'key-3', kind: 'key', label: 'Chave do bairro final', x: 900, y: 504 }
     ],
     trees: [
-      { x: 120, y: 346 },
-      { x: 620, y: 346 }
+      { x: 120, y: TREE_Y },
+      { x: 620, y: TREE_Y }
     ],
     poles: [
-      { x: 360, y: 346 },
-      { x: 980, y: 346 }
+      { x: 360, y: POLE_Y },
+      { x: 980, y: POLE_Y }
     ]
   }
 ])
@@ -6000,63 +6065,18 @@ export default {
   data: () => ({
     levels: buildLevels(),
     levelIndex: 0,
-    tasks: [
-      {
-        id: 'task-1',
-        title: 'Task de onboarding',
-        description: 'Primeira task liberada pela rua principal.',
-        goals: ['Entrar na primeira porta', 'Ler o briefing', 'Fechar a etapa'],
-        completed: false,
-        summary: 'Casa inicial do hub'
-      },
-      {
-        id: 'task-2',
-        title: 'Task de decisao rapida',
-        description: 'Uma task curta com resposta imediata.',
-        goals: ['Abrir a segunda casa', 'Concluir sem perder ritmo'],
-        completed: false,
-        summary: 'Porta lateral'
-      },
-      {
-        id: 'task-3',
-        title: 'Task de puzzle',
-        description: 'Uma fase de leitura e resolucao visual.',
-        goals: ['Subir a colina', 'Entrar na porta elevada'],
-        completed: false,
-        summary: 'Casa alta'
-      },
-      {
-        id: 'task-4',
-        title: 'Task final',
-        description: 'Fechamento da jornada com mais pressao.',
-        goals: ['Abrir a ultima porta', 'Fechar a rodada final'],
-        completed: false,
-        summary: 'Casa final'
-      },
-      {
-        id: 'task-5',
-        title: 'Task do bairro alto',
-        description: 'Uma task mais longa, ja no trecho final do mapa.',
-        goals: ['Passar pela escadaria', 'Chegar na quinta casa'],
-        completed: false,
-        summary: 'Casa do bairro alto'
-      },
-      {
-        id: 'task-6',
-        title: 'Task de encerramento',
-        description: 'A ultima task da rota, usada para fechar a jornada inteira.',
-        goals: ['Abrir a sexta porta', 'Concluir o hub completo'],
-        completed: false,
-        summary: 'Casa de encerramento'
-      }
-    ],
+    tasks: FALLBACK_TASKS,
     phaserGame: null,
     sceneState: null,
+    eventRefUnsubscribe: null,
+    eventLoadTimer: null,
+    hasInitializedFromEvent: false,
     activeTaskId: null,
     currentDoorId: null,
     currentPickupId: null,
     collectedPickupIds: [],
     autoOpenedDoorId: null,
+    levelTransitionLocked: false,
     hasKey: false,
     coins: 0,
     moveIntent: 0,
@@ -6112,14 +6132,149 @@ export default {
     }
   },
   mounted () {
-    this.initPhaser()
+    this.bindEventTasks()
+    if (!this.$route.params.id || !this.$route.params.user) {
+      this.initPhaser()
+    }
   },
   beforeDestroy () {
+    if (this.eventLoadTimer) {
+      window.clearTimeout(this.eventLoadTimer)
+      this.eventLoadTimer = null
+    }
+    if (this.eventRefUnsubscribe) {
+      this.eventRefUnsubscribe()
+      this.eventRefUnsubscribe = null
+    }
     this.destroyPhaser()
   },
   methods: {
+    bindEventTasks () {
+      if (!this.$route.params.id || !this.$route.params.user) return
+      this.eventLoadTimer = window.setTimeout(() => {
+        if (!this.hasInitializedFromEvent && !this.phaserGame) {
+          this.message = 'Evento ainda nao respondeu. Carregando mapa base temporariamente.'
+          this.alertType = 'info'
+          this.initPhaser()
+        }
+      }, 1500)
+      this.eventRefUnsubscribe = db.collection(`users/${this.$route.params.user}/e`).doc(this.$route.params.id)
+        .onSnapshot((snapshot) => {
+          const data = snapshot.data() || {}
+          const sourceTasks = Array.isArray(data.tasks)
+            ? data.tasks
+            : Object.values(data.myTasks || {})
+          const normalized = this.normalizeEventTasks(sourceTasks)
+          if (normalized.length === 0) {
+            if (!this.phaserGame) {
+              this.message = 'Evento sem tasks disponiveis. Exibindo mapa base.'
+              this.alertType = 'info'
+              this.initPhaser()
+            }
+            return
+          }
+          this.hasInitializedFromEvent = true
+          if (this.eventLoadTimer) {
+            window.clearTimeout(this.eventLoadTimer)
+            this.eventLoadTimer = null
+          }
+          this.tasks = normalized
+          this.levels = this.buildLevelsFromTasks(normalized)
+          this.levelIndex = 0
+          this.currentDoorId = null
+          this.currentPickupId = null
+          this.autoOpenedDoorId = null
+          this.collectedPickupIds = []
+          this.hasKey = false
+          this.activeTaskId = null
+          this.message = `Mapa do evento carregado com ${normalized.length} tasks.`
+          this.alertType = 'info'
+          this.$nextTick(() => {
+            this.initPhaser()
+          })
+        })
+    },
+    normalizeEventTasks (sourceTasks) {
+      return sourceTasks.map((task, index) => {
+        const taskId = String(task.id != null ? task.id : index + 1)
+        const component = task.component || 'custom-task'
+        const title = task.name || task.title || component || `Task ${index + 1}`
+        const description = task.text || task.question || task.objective || `Task do evento usando o componente ${component}.`
+        return {
+          id: taskId,
+          title,
+          description,
+          goals: [
+            `Abrir o predio da task ${index + 1}`,
+            component ? `Executar ${component}` : 'Executar a task',
+            'Pontuar na rodada'
+          ],
+          completed: false,
+          summary: component,
+          component,
+          rawTask: task
+        }
+      })
+    },
+    buildLevelsFromTasks (tasks) {
+      const safeTasks = tasks.length ? tasks : FALLBACK_TASKS
+      const templates = buildLevels()
+      let taskIndex = 0
+      const levels = []
+      let sectorIndex = 0
+
+      while (taskIndex < safeTasks.length) {
+        const template = JSON.parse(JSON.stringify(templates[sectorIndex % templates.length]))
+        const slotCount = template.doors.length
+        const sectorTasks = safeTasks.slice(taskIndex, taskIndex + slotCount)
+        taskIndex += slotCount
+
+        const levelNumber = levels.length + 1
+        template.id = `event-level-${sectorIndex}`
+        template.title = `${template.title} ${levelNumber}`
+        template.theme = `${sectorTasks.length} tasks do evento`
+
+        template.doors = template.doors
+          .slice(0, sectorTasks.length)
+          .map((door, index) => {
+            const task = sectorTasks[index]
+            return {
+              ...door,
+              y: GROUND_DOOR_Y,
+              id: task.id,
+              label: task.title,
+              route: task.id
+            }
+          })
+
+        template.pickups = template.pickups.map((pickup, pickupIndex) => {
+          if (pickup.kind === 'key') {
+            const relatedDoor = template.doors[Math.min(pickupIndex, Math.max(template.doors.length - 1, 0))]
+            return {
+              ...pickup,
+              id: relatedDoor ? `key-${relatedDoor.id}` : `key-${sectorIndex}-${pickupIndex}`,
+              label: relatedDoor ? `Chave de ${relatedDoor.label}` : pickup.label
+            }
+          }
+
+          return {
+            ...pickup,
+            id: `coin-${sectorIndex}-${pickupIndex}`,
+            label: `Moeda do setor ${levelNumber}`
+          }
+        })
+
+        levels.push(template)
+        sectorIndex += 1
+      }
+
+      return levels
+    },
     cloneLevel () {
       return JSON.parse(JSON.stringify(this.currentLevel))
+    },
+    scaleValue (value) {
+      return Math.round(value * WORLD_SCALE)
     },
     enterMap () {
       this.startSessionRound('platform-hub')
@@ -6168,8 +6323,13 @@ export default {
           this.load.audio('sfx:door', '/audio/door.wav')
         },
         create () {
-          this.game.world.setBounds(0, 0, 1180, 420)
-          this.game.add.image(0, 0, 'background0')
+          const worldWidth = vm.scaleValue(levelData.worldWidth || 1180)
+          this.game.world.setBounds(0, 0, worldWidth, GAME_HEIGHT)
+          const backgroundCopies = Math.max(1, Math.ceil(worldWidth / GAME_WIDTH))
+          for (let index = 0; index < backgroundCopies; index += 1) {
+            const background = this.game.add.image(index * GAME_WIDTH, 0, 'background0')
+            background.scale.setTo(WORLD_SCALE, WORLD_SCALE)
+          }
           this.game.physics.startSystem(PhaserProxy.Physics.ARCADE)
           this.game.physics.arcade.gravity.y = 1100
 
@@ -6181,7 +6341,8 @@ export default {
           this.bgDecoration = this.game.add.group()
 
           levelData.platforms.forEach((platform) => {
-            const sprite = this.platforms.create(platform.x, platform.y, platform.image)
+            const sprite = this.platforms.create(vm.scaleValue(platform.x), vm.scaleValue(platform.y), platform.image)
+            sprite.scale.setTo(WORLD_SCALE, WORLD_SCALE)
             sprite.visible = platform.visible
             this.game.physics.enable(sprite)
             sprite.body.allowGravity = false
@@ -6189,27 +6350,31 @@ export default {
           })
 
           levelData.trees.forEach((tree) => {
-            const sprite = this.bgDecoration.create(tree.x, tree.y, 'tree')
+            const sprite = this.bgDecoration.create(vm.scaleValue(tree.x), vm.scaleValue(tree.y), 'tree')
             sprite.anchor.setTo(0.5, 1)
+            sprite.scale.setTo(WORLD_SCALE, WORLD_SCALE)
             this.game.physics.enable(sprite)
             sprite.body.allowGravity = false
           })
 
           levelData.poles.forEach((pole) => {
-            const sprite = this.bgDecoration.create(pole.x, pole.y, 'pole')
+            const sprite = this.bgDecoration.create(vm.scaleValue(pole.x), vm.scaleValue(pole.y), 'pole')
             sprite.anchor.setTo(0.5, 1)
+            sprite.scale.setTo(WORLD_SCALE, WORLD_SCALE)
             this.game.physics.enable(sprite)
             sprite.body.allowGravity = false
           })
 
           levelData.doors.forEach((door) => {
-            const house = this.houses.create(door.x, door.y, door.house)
+            const house = this.houses.create(vm.scaleValue(door.x), vm.scaleValue(door.y), door.house)
             house.anchor.setTo(0.5, 1)
+            house.scale.setTo(WORLD_SCALE, WORLD_SCALE)
             this.game.physics.enable(house)
             house.body.allowGravity = false
 
-            const sprite = this.doors.create(door.x, door.y, 'door')
+            const sprite = this.doors.create(vm.scaleValue(door.x), vm.scaleValue(door.y), 'door')
             sprite.anchor.setTo(0.5, 1)
+            sprite.scale.setTo(WORLD_SCALE, WORLD_SCALE)
             sprite.taskId = door.id
             sprite.doorLabel = door.label
             this.game.physics.enable(sprite)
@@ -6218,18 +6383,20 @@ export default {
 
           levelData.pickups.filter((pickup) => !vm.collectedPickupIds.includes(pickup.id)).forEach((pickup) => {
             if (pickup.kind === 'coin') {
-              const sprite = this.coins.create(pickup.x, pickup.y, 'coin')
+              const sprite = this.coins.create(vm.scaleValue(pickup.x), vm.scaleValue(pickup.y), 'coin')
               sprite.pickupId = pickup.id
               sprite.pickupLabel = pickup.label
+              sprite.scale.setTo(WORLD_SCALE, WORLD_SCALE)
               this.game.physics.enable(sprite)
               sprite.body.allowGravity = false
               sprite.anchor.set(0.5, 0.5)
               sprite.animations.add('rotate', [0, 1, 2, 1], 6, true)
               sprite.animations.play('rotate')
             } else {
-              const key = this.doorKeys.create(pickup.x, pickup.y, 'key')
+              const key = this.doorKeys.create(vm.scaleValue(pickup.x), vm.scaleValue(pickup.y), 'key')
               key.pickupId = pickup.id
               key.pickupLabel = pickup.label
+              key.scale.setTo(WORLD_SCALE, WORLD_SCALE)
               this.game.physics.enable(key)
               key.body.allowGravity = false
               key.anchor.set(0.5, 0.5)
@@ -6242,7 +6409,8 @@ export default {
             }
           })
 
-          this.hero = this.game.add.sprite(levelData.hero.x, levelData.hero.y, 'hero')
+          this.hero = this.game.add.sprite(vm.scaleValue(levelData.hero.x), vm.scaleValue(levelData.hero.y), 'hero')
+          this.hero.scale.setTo(WORLD_SCALE, WORLD_SCALE)
           this.game.physics.enable(this.hero)
           this.hero.anchor.set(0.5, 0.5)
           this.hero.body.collideWorldBounds = true
@@ -6325,11 +6493,23 @@ export default {
             if (this.sfx.jump) {
               this.sfx.jump.play()
             }
+          } else if (vm.jumpIntent) {
+            vm.jumpIntent = false
+          }
+
+          const endThreshold = this.game.world.bounds.width - vm.scaleValue(96)
+          const readyToAdvance = this.hero.x >= endThreshold && rightDown && !vm.activeTaskId
+
+          if (readyToAdvance && !vm.levelTransitionLocked) {
+            vm.levelTransitionLocked = true
+            vm.nextLevel()
+          } else if (this.hero.x < endThreshold - vm.scaleValue(48)) {
+            vm.levelTransitionLocked = false
           }
         }
       }
 
-      this.phaserGame = new PhaserProxy.Game(960, 420, PhaserProxy.CANVAS, host, state)
+      this.phaserGame = new PhaserProxy.Game(GAME_WIDTH, GAME_HEIGHT, PhaserProxy.CANVAS, host, state)
     },
     destroyPhaser () {
       if (this.phaserGame) {
@@ -6372,9 +6552,6 @@ export default {
       }
       this.openTask(this.currentDoor.id)
     },
-    collectFocusedPickup () {
-      return
-    },
     closeTask () {
       this.activeTaskId = null
       this.message = 'Voce voltou para o mapa principal.'
@@ -6399,12 +6576,17 @@ export default {
       this.activeTaskId = null
     },
     nextLevel () {
-      this.levelIndex = (this.levelIndex + 1) % this.levels.length
+      const nextIndex = (this.levelIndex + 1) % this.levels.length
+      const loopedToStart = nextIndex === 0
+      this.levelIndex = nextIndex
       this.hasKey = false
       this.currentDoorId = null
       this.currentPickupId = null
       this.autoOpenedDoorId = null
-      this.message = `Fase trocada para ${this.currentLevel.title}.`
+      this.levelTransitionLocked = false
+      this.message = loopedToStart
+        ? 'Voltando ao inicio do hub.'
+        : `Fase trocada para ${this.currentLevel.title}.`
       this.alertType = 'info'
       this.$nextTick(() => {
         this.initPhaser()
@@ -6425,6 +6607,7 @@ export default {
 }
 
 .hub-stage {
+  position: relative;
   min-height: 760px;
 }
 
@@ -6463,13 +6646,111 @@ export default {
   color: #f8fafc;
 }
 
+.task-modal {
+  position: absolute;
+  top: 148px;
+  left: 32px;
+  right: 32px;
+  z-index: 12;
+  overflow: hidden;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.18), transparent 28%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.82)) !important;
+  box-shadow: 0 22px 48px rgba(15, 23, 42, 0.34);
+}
+
+.task-modal__header {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.58), rgba(15, 23, 42, 0.1));
+}
+
+.task-modal__close {
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.task-modal__speaker {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.task-modal__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #2563eb, #0f766e);
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.28);
+}
+
+.task-modal__bubble {
+  position: relative;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(30, 41, 59, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  color: #e2e8f0;
+  line-height: 1.55;
+}
+
+.task-modal__bubble::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 14px;
+  width: 16px;
+  height: 16px;
+  transform: rotate(45deg);
+  background: rgba(30, 41, 59, 0.78);
+  border-left: 1px solid rgba(148, 163, 184, 0.14);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+@media (max-width: 960px) {
+  .task-modal {
+    top: 132px;
+    left: 12px;
+    right: 12px;
+  }
+}
+
 .phaser-stage {
   width: 100%;
-  min-height: 420px;
+  min-height: 720px;
   border-radius: 24px;
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.16);
   background: linear-gradient(180deg, #10203a 0%, #13263f 38%, #0f172a 100%);
+  margin: 0 auto;
+}
+
+.phaser-stage::v-deep canvas {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none;
+  display: block;
+  image-rendering: auto;
+}
+
+.phaser-stage--bleed {
+  margin-left: -16px;
+  margin-right: -16px;
+  width: calc(100% + 32px);
+  border-left: 0;
+  border-right: 0;
+  border-radius: 0;
+}
+
+@media (min-width: 960px) {
+  .phaser-stage--bleed {
+    margin-left: -24px;
+    margin-right: -24px;
+    width: calc(100% + 48px);
+  }
 }
 
 .stage-hud {
