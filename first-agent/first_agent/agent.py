@@ -11,7 +11,13 @@ from first_agent.game_generator import (
     build_user_prompt,
     generate_game,
 )
-from first_agent.ideation import generate_idea, generate_idea_for_category, infer_category_from_engine
+from first_agent.ideation import (
+    generate_idea,
+    generate_idea_for_category,
+    get_prompt_suggestions,
+    infer_category_from_engine,
+    list_suggestion_families,
+)
 from first_agent.memory import AgentMemory
 from first_agent.reference_library import infer_template_hint, select_game_references
 from first_agent.reviewer import review_and_refine_game
@@ -180,6 +186,19 @@ class FirstAgent:
     def auto_run_for_category(self, category: str, seed: str | None = None, repo_path: str | None = None) -> str:
         idea = generate_idea_for_category(category, seed=seed, repo_path=repo_path or self.settings.entert2_path)
         return self.run(idea)
+
+    def show_suggestions(self, family: str | None = None) -> str:
+        suggestions = get_prompt_suggestions(family)
+        if family and not suggestions.get(family):
+            available = ", ".join(list_suggestion_families())
+            return f"No suggestion family named '{family}'. Available families: {available}"
+
+        lines: list[str] = []
+        for suggestion_family, prompts in suggestions.items():
+            lines.append(f"[{suggestion_family}]")
+            lines.extend(f"- {prompt}" for prompt in prompts)
+            lines.append("")
+        return "\n".join(lines).strip()
 
     def _fallback_response(self, game, references, review, novelty_note: str | None = None) -> str:
         lines = [

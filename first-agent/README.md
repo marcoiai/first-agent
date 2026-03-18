@@ -30,6 +30,8 @@ cd /Users/auser/Projects/ml-agent/first-agent
 ./run.sh "temple relic expedition with risky paths and fading energy"
 ./run.sh --auto
 ./run.sh --auto --category showtime
+./run.sh --suggest
+./run.sh --suggest --family platform-hub
 ./run.sh --write-last
 ```
 
@@ -109,6 +111,17 @@ To publish the latest stored generation into `entert2`:
 ```bash
 cd /Users/auser/Projects/ml-agent/first-agent
 ./run.sh --write-last
+```
+
+To browse ready-made prompt families before generating:
+
+```bash
+cd /Users/auser/Projects/ml-agent/first-agent
+./run.sh --suggest
+./run.sh --suggest --family event-platform
+./run.sh --suggest --family platform-hub
+./run.sh --suggest --family vertical-platform-hub
+./run.sh --suggest --family assessment
 ```
 
 ## Environment

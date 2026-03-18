@@ -150,6 +150,11 @@ def build_user_prompt(request: GameGenerationRequest, references: list[GameRefer
             "Use a full-bleed playable stage, doors that open task modals over the map, and a secondary panel that can move below the stage when the map needs more room. "
             "Lean toward JSON-like level configuration and door-to-task navigation instead of a generic card or board layout."
         )
+    vertical_platform_hint = ""
+    if any(token in request.idea.lower() for token in ("vertical", "tower", "climb", "ledge", "stacked blocks", "upper blocks")):
+        vertical_platform_hint = (
+            "\nThis platform hub should lean vertical: reachable block stacks, ladders of platforms, and some buildings placed on higher ledges that are still achievable by jumping."
+        )
     return (
         f"Game idea: {request.idea}\n"
         f"Game component name: {request.game_name}\n"
@@ -162,6 +167,7 @@ def build_user_prompt(request: GameGenerationRequest, references: list[GameRefer
         "If the concept leans toward event, presentation, audience, or showtime use, prefer many people online at once, easy onboarding, low-friction input, and a result that can be compared across participants."
         f"{streetview_hint}"
         f"{platform_hint}"
+        f"{vertical_platform_hint}"
         f"{reference_lines}"
     )
 
@@ -372,6 +378,11 @@ def _build_component_code(request: GameGenerationRequest, references: list[GameR
     if template_name == "pattern":
         return _build_pattern_component(request)
     return _build_pick_one_component(request)
+
+
+def _is_vertical_platform_hub_idea(request: GameGenerationRequest) -> bool:
+    idea = request.idea.lower()
+    return any(token in idea for token in ("vertical", "tower", "climb", "ledge", "stacked blocks", "upper blocks"))
 
 
 def _build_learning_component(request: GameGenerationRequest) -> str:
@@ -5725,6 +5736,7 @@ export default {{
 
 
 def _build_platform_hub_component(request: GameGenerationRequest) -> str:
+    vertical_variant = _is_vertical_platform_hub_idea(request)
     template = '''<template>
   <v-container fluid class="__COMP_KEY__ hub-shell py-6">
     <v-row justify="center">
@@ -6790,6 +6802,41 @@ export default {
 }
 </style>
 '''
+    if vertical_variant:
+        template = template.replace(
+            "Um hub side-scroller em Phaser com casas, portas, chaves e moedas abrindo tasks reais.",
+            "Um hub vertical em Phaser com blocos alcancaveis, ledges e predios em alguns patamares abrindo tasks reais."
+        ).replace(
+            "Ande pelo mapa como no Platform original.",
+            "Suba pelos blocos e patamares como numa torre de tasks."
+        ).replace(
+            "Rua das portas",
+            "Base da torre"
+        ).replace(
+            "Colina das tasks",
+            "Meio da torre"
+        ).replace(
+            "Bairro final",
+            "Topo da torre"
+        ).replace(
+            "{ image: 'grass:4x1', x: 300, y: HIGH_PLATFORM_Y, visible: true },\n      { image: 'grass:2x1', x: 520, y: MID_PLATFORM_Y, visible: true }",
+            "{ image: 'grass:2x1', x: 180, y: 462, visible: true },\n      { image: 'grass:2x1', x: 340, y: 378, visible: true },\n      { image: 'grass:4x1', x: 520, y: 294, visible: true }"
+        ).replace(
+            "{ id: 'task-2', label: 'Porta 02', x: 430, y: GROUND_DOOR_Y, route: 'task-2', house: 'house2' }",
+            "{ id: 'task-2', label: 'Porta 02', x: 560, y: 294, route: 'task-2', house: 'house2' }"
+        ).replace(
+            "{ image: 'grass:6x1', x: 260, y: ELEVATED_PLATFORM_Y, visible: true },\n      { image: 'grass:4x1', x: 610, y: HIGH_PLATFORM_Y, visible: true }",
+            "{ image: 'grass:2x1', x: 160, y: 462, visible: true },\n      { image: 'grass:2x1', x: 300, y: 378, visible: true },\n      { image: 'grass:2x1', x: 460, y: 294, visible: true },\n      { image: 'grass:4x1', x: 640, y: 210, visible: true }"
+        ).replace(
+            "{ id: 'task-3', label: 'Porta 03', x: 350, y: ELEVATED_DOOR_Y, route: 'task-3', house: 'house4' },\n      { id: 'task-4', label: 'Porta 04', x: 720, y: GROUND_DOOR_Y, route: 'task-4', house: 'house5' }",
+            "{ id: 'task-3', label: 'Porta 03', x: 340, y: 378, route: 'task-3', house: 'house4' },\n      { id: 'task-4', label: 'Porta 04', x: 700, y: 210, route: 'task-4', house: 'house5' }"
+        ).replace(
+            "{ image: 'grass:2x1', x: 220, y: 420, visible: true },\n      { image: 'grass:4x1', x: 430, y: 370, visible: true },\n      { image: 'grass:6x1', x: 690, y: HIGH_PLATFORM_Y, visible: true }",
+            "{ image: 'grass:2x1', x: 180, y: 462, visible: true },\n      { image: 'grass:2x1', x: 330, y: 378, visible: true },\n      { image: 'grass:2x1', x: 490, y: 294, visible: true },\n      { image: 'grass:4x1', x: 690, y: 210, visible: true }"
+        ).replace(
+            "{ id: 'task-5', label: 'Porta 05', x: 500, y: 420, route: 'task-5', house: 'house1' },\n      { id: 'task-6', label: 'Porta 06', x: 860, y: GROUND_DOOR_Y, route: 'task-6', house: 'house2' }",
+            "{ id: 'task-5', label: 'Porta 05', x: 520, y: 294, route: 'task-5', house: 'house1' },\n      { id: 'task-6', label: 'Porta 06', x: 760, y: 210, route: 'task-6', house: 'house2' }"
+        )
     return template.replace("__COMP_KEY__", request.component_key).replace("__GAME_NAME__", request.game_name)
     return f"""<template>
   <v-container fluid class="{request.component_key} game-shell py-6">

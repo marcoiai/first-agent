@@ -19,6 +19,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--write-last", action="store_true", help="Write the last stored generated game into entert2.")
     parser.add_argument("--approve-last", action="store_true", help="Mark the last generated game as approved.")
     parser.add_argument("--reject-last", action="store_true", help="Mark the last generated game as rejected.")
+    parser.add_argument("--suggest", action="store_true", help="Show prompt suggestion families for generation.")
+    parser.add_argument("--family", default=None, help="Optional suggestion family for --suggest.")
     return parser.parse_args()
 
 
@@ -29,6 +31,9 @@ def main() -> None:
         raise SystemExit("Use only one of --approve-last or --reject-last.")
     if args.show_last and args.write_last:
         raise SystemExit("Use only one of --show-last or --write-last.")
+    if args.suggest:
+        print(agent.show_suggestions(args.family))
+        return
     if args.show_last:
         print(agent.show_last_generation())
         return

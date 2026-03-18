@@ -78,6 +78,8 @@ ENGINE_IDEAS = {
         "scrolling portal map where each door opens a different mission task",
         "platform-style task plaza with collectible unlocks and live progress rail",
         "mission street hub with staged scenes, portal doors and task history",
+        "vertical task tower with reachable blocks and buildings on upper ledges",
+        "climbable mission stack where some doors live on higher platforms",
     ],
     "variety": [
         "festival gauntlet mixing memory, quiz, reflex and treasure picks for everyone online",
@@ -105,6 +107,44 @@ ENGINE_IDEAS = {
     ],
 }
 
+SUGGESTION_FAMILIES = {
+    "assessment": [
+        "self awareness assessment with guided questions and a practical profile at the end",
+        "leadership evaluation with short scenarios, score breakdown and coaching advice",
+        "teamwork checkup with multiple questions and a final interpretation report",
+        "decision style assessment with branching questions and personalized feedback",
+        "communication diagnostic with quick answers and a strengths versus gaps summary",
+    ],
+    "adventure": [
+        "temple relic expedition with risky paths and fading energy",
+        "jungle relic ascent with risky shortcuts and fading torchlight",
+        "desert artifact run with dangerous paths and shrinking stamina",
+        "lost ruins expedition with fading supplies and branching hazards",
+        "storm relic hunt with unstable routes and fragile energy",
+    ],
+    "event-platform": [
+        "multi stage event platform with central game area and support timeline",
+        "event control platform with central arena and side support timeline",
+        "showtime event platform with central stage and support progress rail",
+        "live mission platform with central play area and side operations timeline",
+        "audience event platform with central interaction zone and support timeline",
+    ],
+    "platform-hub": [
+        "task world hub with unlockable doors and side progress timeline",
+        "mission world hub with unlockable buildings and side reputation timeline",
+        "quest district hub with gated houses and side progress rail",
+        "adventure task hub with locked portals and side milestone tracker",
+        "platform mission hub with unlockable rooms and side journey timeline",
+    ],
+    "vertical-platform-hub": [
+        "vertical phaser task tower with reachable platforms, event tasks, stacked buildings and climbable pivot platforms",
+        "vertical mission tower with reachable ledges, event tasks and unlockable upper buildings",
+        "climbable task stack with upper houses, pivot platforms and side progress rail",
+        "tower mission hub with stacked buildings, jumpable supports and live event tasks",
+        "vertical quest world with reachable blocks, upper doors and climbable support platforms",
+    ],
+}
+
 EXPERIENCE_CATEGORIES = {
     "learning": ["learning", "quiz", "memory", "pattern", "crossword"],
     "self-development": ["self-development", "diagnostic", "quiz", "adventure"],
@@ -127,7 +167,7 @@ ENGINE_KEYWORDS = {
     "quiz": {"quiz", "choice", "trivia", "question", "answer"},
     "crossword": {"crossword", "word", "letters", "spelling", "clue"},
     "adventure": {"adventure", "quest", "explore", "relic", "temple", "journey"},
-    "platform-hub": {"platform", "hub", "portal", "door", "task", "world", "stage", "map"},
+    "platform-hub": {"platform", "hub", "portal", "door", "task", "world", "stage", "map", "vertical", "tower", "climb", "ledge", "blocks"},
     "variety": {"mix", "mixed", "variety", "gauntlet", "multi", "festival", "all"},
     "duel": {"boxing", "fight", "duel", "punch", "battle"},
     "runner": {"jump", "runner", "obstacle", "survival", "dodge"},
@@ -180,6 +220,16 @@ def infer_category_from_engine(engine_name: str) -> str:
         if engine_name in engines:
             return category
     return "event"
+
+
+def list_suggestion_families() -> list[str]:
+    return list(SUGGESTION_FAMILIES.keys())
+
+
+def get_prompt_suggestions(family: str | None = None) -> dict[str, list[str]]:
+    if family:
+        return {family: SUGGESTION_FAMILIES.get(family, [])}
+    return SUGGESTION_FAMILIES
 
 
 def _choose_auto_category(
